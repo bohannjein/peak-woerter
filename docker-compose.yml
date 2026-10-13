@@ -9,7 +9,7 @@ services:
     environment:
       POSTGRES_USER: peake
       POSTGRES_DB: peake
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD fehlt in .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD fehlt (.env bzw. Portainer-Variablen)}
     volumes:
       - dbdata:/var/lib/postgresql/data
     healthcheck:
@@ -28,16 +28,16 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL: postgresql://peake:${POSTGRES_PASSWORD}@db:5432/peake
-      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?BETTER_AUTH_SECRET fehlt in .env}
-      BETTER_AUTH_URL: ${PUBLIC_URL:?PUBLIC_URL fehlt in .env}
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?BETTER_AUTH_SECRET fehlt (.env bzw. Portainer-Variablen)}
+      BETTER_AUTH_URL: ${PUBLIC_URL:?PUBLIC_URL fehlt (.env bzw. Portainer-Variablen)}
       SETUP_TOKEN: ${SETUP_TOKEN:-}
       AI_API_KEY: ${AI_API_KEY:-}
     volumes:
       - appdata:/data
     ports:
-      # Bind to localhost only; the reverse proxy on the host forwards to it.
+      # Localhost by default (APP_BIND); the reverse proxy on the host forwards to it.
       # If your proxy runs in Docker, remove this and join its network instead.
-      - "127.0.0.1:${APP_PORT:-3000}:3000"
+      - "${APP_BIND:-127.0.0.1}:${APP_PORT:-3000}:3000"
     networks: [internal]
 
 volumes:
