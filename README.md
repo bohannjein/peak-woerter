@@ -49,12 +49,12 @@ cp .env.example .env
 # .env ausfüllen:
 #   PUBLIC_URL          = exakte HTTPS-Adresse, z. B. https://woerter.example.de
 #   BETTER_AUTH_SECRET  = openssl rand -base64 48
-#   POSTGRES_PASSWORD   = openssl rand -base64 32
+#   POSTGRES_PASSWORD   = openssl rand -hex 32   (nur Buchstaben/Ziffern, steht in einer URL)
 docker compose up -d --build
 docker compose logs -f app
 ```
 
-Die App lauscht auf `127.0.0.1:3000` (änderbar über `APP_PORT`). Den Reverse Proxy auf diese Adresse zeigen lassen. Beispiel Caddy:
+Die App lauscht auf `127.0.0.1:3000` (änderbar über `APP_PORT` und `APP_BIND`). Den Reverse Proxy auf diese Adresse zeigen lassen. Beispiel Caddy:
 
 ```
 woerter.example.de {
@@ -64,7 +64,30 @@ woerter.example.de {
 
 Der Proxy muss `X-Forwarded-For` setzen (alle gängigen tun das). Das Rate Limit der Anmeldung verlässt sich darauf.
 
-**Portainer:** *Stacks → Add stack → Repository* (oder den Inhalt von `docker-compose.yml` einfügen). Die Werte aus `.env.example` als Environment Variables eintragen. Das Image wird beim Deploy gebaut. Läuft der Reverse Proxy selbst als Container, das `ports:`-Mapping entfernen und den `app`-Dienst in das Netzwerk des Proxys hängen.
+### Mit Portainer (direkt aus GitHub)
+
+Portainer klont das Repo und baut das Image selbst. Kein Shell-Zugriff nötig.
+
+1. *Stacks → Add stack*, Name `peake`, Build-Methode **Repository**.
+2. Repository URL: `https://github.com/bohannjein/peak-woerter`, Reference: `refs/heads/main`, Compose path: `docker-compose.yml`.
+3. Das Repo ist privat: **Authentication** einschalten. Benutzername = GitHub-Name, Passwort = ein *Fine-grained Personal Access Token* (GitHub → Settings → Developer settings), nur dieses Repo, Berechtigung *Contents: Read-only*.
+4. Unter **Environment variables** eintragen:
+
+   | Variable | Wert |
+   |---|---|
+   | `PUBLIC_URL` | exakte HTTPS-Adresse, z. B. `https://woerter.example.de` (ohne `/` am Ende) |
+   | `BETTER_AUTH_SECRET` | langer Zufallswert, z. B. `openssl rand -base64 48` |
+   | `POSTGRES_PASSWORD` | nur Buchstaben und Ziffern, z. B. `openssl rand -hex 32` |
+   | `SETUP_TOKEN` | optional, sonst steht es im Container-Log von `app` |
+   | `APP_PORT` | optional, Standard `3000` |
+   | `APP_BIND` | optional: `127.0.0.1` (Proxy auf demselben Host, Standard) oder `0.0.0.0` (Proxy auf anderem Rechner) |
+
+5. *Deploy the stack*. Der erste Build dauert einige Minuten.
+6. Reverse Proxy auf den App-Port zeigen lassen und `PUBLIC_URL` im Browser öffnen.
+
+Läuft der Reverse Proxy selbst als Container (z. B. Nginx Proxy Manager), alternativ das `ports:`-Mapping entfernen und den `app`-Dienst in das Netzwerk des Proxys hängen. Optional *GitOps updates* aktivieren, dann baut Portainer nach jedem Push neu.
+
+`POSTGRES_PASSWORD` nach dem ersten Start nicht mehr ändern: Postgres übernimmt es nur beim allerersten Anlegen der Datenbank.
 
 > `PUBLIC_URL` muss exakt der Adresse entsprechen, unter der die App im Browser aufgerufen wird. Passkeys sind an diese Domain gebunden. Wird die Domain später geändert, funktionieren vorhandene Passkeys nicht mehr. Passwort und TOTP funktionieren weiter.
 
