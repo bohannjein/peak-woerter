@@ -1,0 +1,346 @@
+@import "tailwindcss";
+
+/* ───────────── Tokens ─────────────
+   The table (ground) changes with the theme; the cards are always card stock.
+   Colour carries meaning only: category bands and the three vote verdicts. */
+:root {
+  color-scheme: light;
+  --table: #e4e7ee;
+  --table-2: #d8dce6;
+  --table-3: #cbd0dc;
+  --line: #b9bfcd;
+  --ink: #12141c;
+  --ink-2: #474d61;
+  --ink-3: #636a80;
+  --focus: #2347d8;
+
+  --card: #fdfdf8;
+  --card-2: #f0efe6;
+  --card-ink: #13151d;
+  --card-ink-2: #4f5466;
+  --card-line: #d6d5cb;
+  --card-shadow: 0 1px 1px rgb(18 20 28 / 0.08), 0 10px 30px -8px rgb(18 20 28 / 0.28);
+
+  --yes: #12804a;
+  --no: #d0254f;
+  --later: #f5b900;
+  --later-ink: #2b2100;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --table: #10121a;
+    --table-2: #171a25;
+    --table-3: #20242f;
+    --line: #2d3242;
+    --ink: #eceef5;
+    --ink-2: #a9afc2;
+    --ink-3: #8a90a5;
+    --focus: #8ea6ff;
+    --card: #f4f3ec;
+    --card-2: #e7e5da;
+    --card-shadow: 0 1px 1px rgb(0 0 0 / 0.4), 0 16px 40px -10px rgb(0 0 0 / 0.75);
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --table: #10121a;
+  --table-2: #171a25;
+  --table-3: #20242f;
+  --line: #2d3242;
+  --ink: #eceef5;
+  --ink-2: #a9afc2;
+  --ink-3: #8a90a5;
+  --focus: #8ea6ff;
+  --card: #f4f3ec;
+  --card-2: #e7e5da;
+  --card-shadow: 0 1px 1px rgb(0 0 0 / 0.4), 0 16px 40px -10px rgb(0 0 0 / 0.75);
+}
+
+@theme inline {
+  --font-sans: var(--font-archivo), ui-sans-serif, system-ui, sans-serif;
+  --font-lex: var(--font-charis), "Charis SIL", "Gentium Plus", "Noto Serif", serif;
+
+  --color-table: var(--table);
+  --color-table-2: var(--table-2);
+  --color-table-3: var(--table-3);
+  --color-line: var(--line);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-card: var(--card);
+  --color-card-2: var(--card-2);
+  --color-card-ink: var(--card-ink);
+  --color-card-ink-2: var(--card-ink-2);
+  --color-card-line: var(--card-line);
+  --color-yes: var(--yes);
+  --color-no: var(--no);
+  --color-later: var(--later);
+  --color-later-ink: var(--later-ink);
+  --color-focus: var(--focus);
+
+  --radius-card: 20px;
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ───────────── Base ───────────── */
+html {
+  -webkit-text-size-adjust: 100%;
+  text-rendering: optimizeLegibility;
+  -webkit-tap-highlight-color: transparent;
+}
+body {
+  background: var(--table);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-feature-settings: "kern", "liga";
+  min-height: 100dvh;
+  overscroll-behavior-y: none;
+}
+::selection {
+  background: var(--later);
+  color: var(--later-ink);
+}
+:focus-visible {
+  outline: 2.5px solid var(--focus);
+  outline-offset: 3px;
+  border-radius: 6px;
+}
+input,
+textarea,
+select {
+  caret-color: var(--focus);
+}
+a {
+  text-underline-offset: 0.18em;
+  text-decoration-thickness: 1px;
+}
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+}
+.tabular {
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+/* Condensed display voice (Archivo width axis). */
+.display {
+  font-stretch: 68%;
+  font-weight: 860;
+  letter-spacing: -0.012em;
+  line-height: 0.92;
+}
+.condensed {
+  font-stretch: 78%;
+}
+
+/* IPA: Charis SIL, never synthesised; brackets drawn by .ipa::before/after. */
+.ipa {
+  font-family: var(--font-lex);
+  font-style: normal;
+  letter-spacing: 0.01em;
+  font-feature-settings: "kern";
+}
+.ipa::before {
+  content: "[";
+  opacity: 0.55;
+  padding-right: 0.06em;
+}
+.ipa::after {
+  content: "]";
+  opacity: 0.55;
+  padding-left: 0.06em;
+}
+.lex-italic {
+  font-family: var(--font-lex);
+  font-style: italic;
+}
+
+/* Component classes live in the components layer so utilities (hidden, md:*) can override them. */
+@layer components {
+/* Page and section titles: the display voice, but sized for an archive, not a poster. */
+.page-title {
+  font-stretch: 72%;
+  font-weight: 820;
+  letter-spacing: -0.01em;
+  line-height: 1;
+  font-size: clamp(2rem, 6vw, 2.75rem);
+}
+.section-title {
+  font-weight: 700;
+  font-size: 1.15rem;
+  letter-spacing: -0.005em;
+}
+/* Card stock: subtle paper tooth, no gradients for decoration. */
+.card-stock {
+  background-color: var(--card);
+  color: var(--card-ink);
+  border-radius: var(--radius-card);
+  box-shadow: var(--card-shadow);
+}
+
+/* Category band colours (one colour = one category). */
+.band-cobalt { --band: #2347d8; --band-ink: #ffffff; }
+.band-sun { --band: #ffcf1f; --band-ink: #231b00; }
+.band-grass { --band: #17824b; --band-ink: #ffffff; }
+.band-magenta { --band: #c72663; --band-ink: #ffffff; }
+.band-orange { --band: #f2711c; --band-ink: #1f0e00; }
+.band-teal { --band: #0b7476; --band-ink: #ffffff; }
+.band-violet { --band: #6b46c1; --band-ink: #ffffff; }
+.band-ink { --band: #2a2e3c; --band-ink: #f4f3ec; }
+
+/* Form controls on the table. */
+.field {
+  width: 100%;
+  border-radius: 14px;
+  background: var(--table-2);
+  border: 1.5px solid var(--line);
+  padding: 0.8rem 1rem;
+  font-size: 1rem;
+  color: var(--ink);
+  transition: border-color 160ms, background 160ms;
+}
+.field::placeholder {
+  color: var(--ink-3);
+}
+.field:hover {
+  border-color: var(--ink-3);
+}
+.field:focus {
+  outline: none;
+  border-color: var(--focus);
+  background: var(--table);
+}
+.field[aria-invalid="true"] {
+  border-color: var(--no);
+}
+.label {
+  display: block;
+  font-weight: 640;
+  font-size: 0.9rem;
+  margin-bottom: 0.4rem;
+}
+.hint {
+  font-size: 0.85rem;
+  color: var(--ink-2);
+  margin-top: 0.35rem;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 48px;
+  padding: 0 1.25rem;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 1rem;
+  transition: transform 120ms var(--ease-out-expo), background 160ms, opacity 160ms;
+  user-select: none;
+}
+.btn:active:not(:disabled) {
+  transform: scale(0.97);
+}
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.btn-primary {
+  background: var(--ink);
+  color: var(--table);
+}
+.btn-primary:hover:not(:disabled) {
+  background: color-mix(in oklab, var(--ink) 86%, var(--table));
+}
+.btn-quiet {
+  background: var(--table-2);
+  color: var(--ink);
+  border: 1.5px solid var(--line);
+}
+.btn-quiet:hover:not(:disabled) {
+  background: var(--table-3);
+}
+.btn-danger {
+  background: var(--no);
+  color: #fff;
+}
+.btn-sm {
+  min-height: 44px;
+  padding: 0 0.9rem;
+  font-size: 0.9rem;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 36px;
+  padding: 0 0.85rem;
+  border-radius: 999px;
+  border: 1.5px solid var(--line);
+  font-weight: 600;
+  font-size: 0.9rem;
+  white-space: nowrap;
+  transition: background 140ms, border-color 140ms;
+}
+@media (pointer: coarse) {
+  .chip {
+    min-height: 44px;
+  }
+}
+.chip:hover {
+  border-color: var(--ink-3);
+}
+.chip[aria-current="true"],
+.chip[aria-pressed="true"] {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--table);
+}
+
+}
+
+/* Safe areas for the installed PWA. */
+.pb-safe {
+  padding-bottom: max(env(safe-area-inset-bottom), 0px);
+}
+.pt-safe {
+  padding-top: env(safe-area-inset-top);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+:root[data-motion="reduce"] *,
+:root[data-motion="reduce"] *::before,
+:root[data-motion="reduce"] *::after {
+  animation-duration: 1ms !important;
+  transition-duration: 1ms !important;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+.toast-in {
+  animation: rise 260ms var(--ease-out-expo);
+}
+
+/* Verdict stamp: ink on card stock, with a worn rubber edge. */
+.stamp {
+  background: transparent;
+  mix-blend-mode: multiply;
+  -webkit-mask-image: repeating-linear-gradient(115deg, #000 0 7px, rgb(0 0 0 / 0.78) 7px 9px);
+  mask-image: repeating-linear-gradient(115deg, #000 0 7px, rgb(0 0 0 / 0.78) 7px 9px);
+}

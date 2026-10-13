@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Offline · Peake Wörter</title>
+<style>
+  :root { color-scheme: dark; }
+  body { margin: 0; min-height: 100dvh; display: grid; place-items: center; background: #10121a; color: #eceef5;
+         font: 16px/1.5 system-ui, sans-serif; padding: 24px; box-sizing: border-box; }
+  .card { background: #f4f3ec; color: #13151d; border-radius: 20px; max-width: 22rem; width: 100%; overflow: hidden;
+          box-shadow: 0 16px 40px -10px rgb(0 0 0 / .75); }
+  .band { background: #2a2e3c; color: #f4f3ec; padding: 12px 20px; font-weight: 800; font-size: 13px; letter-spacing: .08em; text-transform: uppercase; }
+  .body { padding: 22px 20px 26px; }
+  h1 { font-size: 40px; line-height: .95; margin: 0 0 12px; font-weight: 900; letter-spacing: -0.01em; }
+  button { margin-top: 18px; min-height: 48px; padding: 0 20px; border-radius: 999px; border: 0; background: #13151d; color: #f4f3ec; font-weight: 700; font-size: 16px; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="band">Funkloch</div>
+    <div class="body">
+      <h1>Offline.</h1>
+      <p>Keine Verbindung.</p>
+      <button onclick="location.reload()">Erneut versuchen</button>
+    </div>
+  </div>
+</body>
+</html>
