@@ -1,0 +1,437 @@
+// Peake Wörter – data model.
+// Better Auth tables (User, Session, Account, Verification, TwoFactor, Passkey)
+// follow the field names Better Auth expects; everything else is app domain.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ───────────────────────── Auth (Better Auth) ─────────────────────────
+
+model User {
+  id               String   @id
+  name             String
+  email            String   @unique
+  emailVerified    Boolean  @default(false)
+  image            String?
+  twoFactorEnabled Boolean? @default(false)
+  isAdmin          Boolean  @default(false)
+  disabled         Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  sessions    Session[]
+  accounts    Account[]
+  twoFactors  TwoFactor[]
+  passkeys    Passkey[]
+  curatorSeat CuratorSeat?
+  votes       Vote[]
+  comments    Comment[]
+  words       Word[]         @relation("WordSubmitter")
+  rounds      VotingRound[]  @relation("RoundOpener")
+  auditLogs   AuditLog[]
+  accessLinks AccessLink[]   @relation("AccessLinkCreator")
+
+  @@map("user")
+}
+
+model Session {
+  id        String   @id
+  expiresAt DateTime
+  token     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([userId])
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@map("verification")
+}
+
+model TwoFactor {
+  id                      String    @id
+  secret                  String
+  backupCodes             String
+  userId                  String
+  user                    User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  verified                Boolean?  @default(true)
+  failedVerificationCount Int?      @default(0)
+  lockedUntil             DateTime?
+
+  @@index([secret])
+  @@index([userId])
+  @@map("twoFactor")
+}
+
+model Passkey {
+  id           String    @id
+  name         String?
+  publicKey    String
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  credentialID String
+  counter      Int
+  deviceType   String
+  backedUp     Boolean
+  transports   String?
+  createdAt    DateTime? @default(now())
+  aaguid       String?
+
+  @@index([userId])
+  @@index([credentialID])
+  @@map("passkey")
+}
+
+// ───────────────────────── Roles & access ─────────────────────────
+
+// Exactly two curator seats exist (1 and 2). A seat is the right to vote.
+model CuratorSeat {
+  seat      Int      @id // 1 | 2, enforced by CHECK constraint in migration
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+  createdAt DateTime @default(now())
+
+  @@map("curator_seat")
+}
+
+enum AccessLinkKind {
+  INVITE
+  RESET
+}
+
+// One-time links for invitations and admin-issued password resets.
+// Only a SHA-256 hash of the token is stored.
+model AccessLink {
+  id           String         @id @default(cuid())
+  kind         AccessLinkKind
+  tokenHash    String         @unique
+  email        String?
+  userId       String? // RESET: target user
+  grantAdmin   Boolean        @default(false)
+  grantSeat    Int? // INVITE: curator seat to assign
+  expiresAt    DateTime
+  usedAt       DateTime?
+  createdById  String?
+  createdBy    User?          @relation("AccessLinkCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt    DateTime       @default(now())
+
+  @@map("access_link")
+}
+
+// ───────────────────────── Words ─────────────────────────
+
+enum WordStatus {
+  VOTING // first round open
+  LATER // "Später" list: undecided, open for discussion
+  ACCEPTED // in the official collection
+  REJECTED // negative list (never public, never deleted)
+}
+
+enum PartOfSpeech {
+  SUBSTANTIV
+  VERB
+  ADJEKTIV
+  ADVERB
+  INTERJEKTION
+  REDEWENDUNG
+  SONSTIGES
+}
+
+enum WordSource {
+  CURATOR
+  GUEST
+}
+
+model Word {
+  id            String        @id @default(cuid())
+  term          String
+  normalized    String        @unique
+  slug          String        @unique
+  status        WordStatus    @default(VOTING)
+  // Public visibility is derived by the voting state machine (accepted and
+  // not vetoed in a running re-evaluation). Never set it anywhere else.
+  isPublic      Boolean       @default(false)
+  cardNumber    Int?          @unique // assigned on first acceptance
+  partOfSpeech  PartOfSpeech?
+  grammar       String? // e.g. "maskulin", "der; -es, -e"
+  usage         String? // Verwendung / Kontext
+  origin        String? // Herkunft
+  variants      String[]      @default([]) // alternative spellings
+  submissionNote String? // free text from whoever suggested it
+  source        WordSource    @default(CURATOR)
+  submittedById String?
+  submittedBy   User?         @relation("WordSubmitter", fields: [submittedById], references: [id], onDelete: SetNull)
+  guestName     String?
+  acceptedAt    DateTime? // last time the word entered the collection
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  definitions    Definition[]
+  pronunciations Pronunciation[]
+  examples       Example[]
+  categories     WordCategory[]
+  rounds         VotingRound[]
+  comments       Comment[]
+  dailyWords     DailyWord[]
+  aiDrafts       AiDraft[]
+  submissions    Submission[]
+
+  @@index([status])
+  @@index([isPublic, term])
+  @@index([isPublic, acceptedAt])
+  @@map("word")
+}
+
+// A word can have several numbered meanings.
+model Definition {
+  id       String @id @default(cuid())
+  wordId   String
+  word     Word   @relation(fields: [wordId], references: [id], onDelete: Cascade)
+  position Int
+  text     String // short definition, one or two sentences
+  detail   String? // optional longer explanation
+
+  @@unique([wordId, position])
+  @@map("definition")
+}
+
+model Pronunciation {
+  id        String  @id @default(cuid())
+  wordId    String
+  word      Word    @relation(fields: [wordId], references: [id], onDelete: Cascade)
+  position  Int
+  ipa       String // IPA without brackets, e.g. ˈmʊmpɪt͡s
+  label     String? // e.g. "süddeutsch", "wie wir es sagen"
+  // false = draft/guess (e.g. AI); only confirmed IPA is shown as fact
+  verified  Boolean @default(false)
+  audioPath String? // real recording, served from /api/audio
+
+  @@unique([wordId, position])
+  @@map("pronunciation")
+}
+
+model Example {
+  id       String @id @default(cuid())
+  wordId   String
+  word     Word   @relation(fields: [wordId], references: [id], onDelete: Cascade)
+  position Int
+  text     String
+
+  @@unique([wordId, position])
+  @@map("example")
+}
+
+model Category {
+  id        String         @id @default(cuid())
+  name      String         @unique
+  slug      String         @unique
+  color     String         @default("ink") // palette key, see lib/categories.ts
+  createdAt DateTime       @default(now())
+  words     WordCategory[]
+
+  @@map("category")
+}
+
+model WordCategory {
+  wordId     String
+  categoryId String
+  word       Word     @relation(fields: [wordId], references: [id], onDelete: Cascade)
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@id([wordId, categoryId])
+  @@index([categoryId])
+  @@map("word_category")
+}
+
+// ───────────────────────── Voting ─────────────────────────
+
+enum RoundKind {
+  INITIAL // first vote after submission
+  REVOTE // new round from the Später list or a restored negative word
+  REVIEW // re-evaluation of an accepted word
+}
+
+enum VoteValue {
+  YES
+  NO
+  LATER
+}
+
+enum RoundOutcome {
+  ACCEPTED
+  LATER
+  REJECTED
+  CANCELLED // e.g. admin restored a word, round superseded
+}
+
+model VotingRound {
+  id         String        @id @default(cuid())
+  wordId     String
+  word       Word          @relation(fields: [wordId], references: [id], onDelete: Cascade)
+  number     Int
+  kind       RoundKind
+  openedById String?
+  openedBy   User?         @relation("RoundOpener", fields: [openedById], references: [id], onDelete: SetNull)
+  openedAt   DateTime      @default(now())
+  closedAt   DateTime?
+  outcome    RoundOutcome?
+  votes      Vote[]
+  comments   Comment[]
+
+  // Partial unique index "one open round per word" lives in the migration SQL.
+  @@unique([wordId, number])
+  @@index([closedAt])
+  @@map("voting_round")
+}
+
+model Vote {
+  id        String      @id @default(cuid())
+  roundId   String
+  round     VotingRound @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User        @relation(fields: [userId], references: [id], onDelete: Restrict)
+  seat      Int
+  value     VoteValue
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  @@unique([roundId, seat])
+  @@unique([roundId, userId])
+  @@map("vote")
+}
+
+model Comment {
+  id        String       @id @default(cuid())
+  wordId    String
+  word      Word         @relation(fields: [wordId], references: [id], onDelete: Cascade)
+  roundId   String?
+  round     VotingRound? @relation(fields: [roundId], references: [id], onDelete: SetNull)
+  userId    String
+  user      User         @relation(fields: [userId], references: [id], onDelete: Restrict)
+  body      String
+  createdAt DateTime     @default(now())
+
+  @@index([wordId, createdAt])
+  @@map("comment")
+}
+
+// ───────────────────────── Guest submissions ─────────────────────────
+
+enum SubmissionStatus {
+  NEW
+  FORWARDED // turned into a Word and sent to voting
+  DISMISSED
+}
+
+// Inbox for visitor suggestions. Guests never create Words directly.
+model Submission {
+  id         String           @id @default(cuid())
+  term       String
+  normalized String
+  note       String?
+  guestName  String?
+  ipHash     String? // salted hash, for rate limiting/abuse review only
+  status     SubmissionStatus @default(NEW)
+  wordId     String?
+  word       Word?            @relation(fields: [wordId], references: [id], onDelete: SetNull)
+  createdAt  DateTime         @default(now())
+
+  @@index([status, createdAt])
+  @@index([normalized])
+  @@map("submission")
+}
+
+// ───────────────────────── Misc ─────────────────────────
+
+model DailyWord {
+  day    String   @id // YYYY-MM-DD in Europe/Berlin
+  wordId String
+  word   Word     @relation(fields: [wordId], references: [id], onDelete: Cascade)
+  pickedAt DateTime @default(now())
+
+  @@index([wordId])
+  @@map("daily_word")
+}
+
+enum AiDraftStatus {
+  DRAFT
+  APPLIED
+  DISCARDED
+}
+
+// AI output is only ever a draft that curators apply, edit or discard.
+model AiDraft {
+  id        String        @id @default(cuid())
+  wordId    String
+  word      Word          @relation(fields: [wordId], references: [id], onDelete: Cascade)
+  provider  String
+  model     String?
+  content   Json
+  status    AiDraftStatus @default(DRAFT)
+  createdAt DateTime      @default(now())
+
+  @@index([wordId, status])
+  @@map("ai_draft")
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String?
+  actor      User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  action     String
+  entityType String
+  entityId   String?
+  data       Json?
+  createdAt  DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([createdAt])
+  @@map("audit_log")
+}
+
+model AppSetting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+
+  @@map("app_setting")
+}

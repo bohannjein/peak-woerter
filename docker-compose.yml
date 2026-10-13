@@ -1,0 +1,48 @@
+# Peake Wörter – self-hosted stack (app + PostgreSQL).
+# HTTPS is terminated by your existing reverse proxy; point it at the app port.
+name: peake
+
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: peake
+      POSTGRES_DB: peake
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD fehlt in .env}
+    volumes:
+      - dbdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U peake -d peake"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [internal]
+
+  app:
+    image: peake-woerter:latest
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://peake:${POSTGRES_PASSWORD}@db:5432/peake
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?BETTER_AUTH_SECRET fehlt in .env}
+      BETTER_AUTH_URL: ${PUBLIC_URL:?PUBLIC_URL fehlt in .env}
+      SETUP_TOKEN: ${SETUP_TOKEN:-}
+      AI_API_KEY: ${AI_API_KEY:-}
+    volumes:
+      - appdata:/data
+    ports:
+      # Bind to localhost only; the reverse proxy on the host forwards to it.
+      # If your proxy runs in Docker, remove this and join its network instead.
+      - "127.0.0.1:${APP_PORT:-3000}:3000"
+    networks: [internal]
+
+volumes:
+  dbdata:
+  appdata:
+
+networks:
+  internal:
