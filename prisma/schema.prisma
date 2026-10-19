@@ -22,20 +22,31 @@ model User {
   twoFactorEnabled Boolean? @default(false)
   isAdmin          Boolean  @default(false)
   disabled         Boolean  @default(false)
+  // Extra rights granted by an admin, see lib/permissions.ts.
+  permissions      String[] @default([])
+  bio              String?
+  avatarPath       String? // file on the data volume, served by /api/avatar
+  favoriteWordId   String?
+  favoriteWord     Word?    @relation("FavoriteWord", fields: [favoriteWordId], references: [id], onDelete: SetNull)
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
-  sessions    Session[]
-  accounts    Account[]
-  twoFactors  TwoFactor[]
-  passkeys    Passkey[]
-  curatorSeat CuratorSeat?
-  votes       Vote[]
-  comments    Comment[]
-  words       Word[]         @relation("WordSubmitter")
-  rounds      VotingRound[]  @relation("RoundOpener")
-  auditLogs   AuditLog[]
-  accessLinks AccessLink[]   @relation("AccessLinkCreator")
+  sessions      Session[]
+  accounts      Account[]
+  twoFactors    TwoFactor[]
+  passkeys      Passkey[]
+  curatorSeat   CuratorSeat?
+  votes         Vote[]
+  comments      Comment[]
+  words         Word[]         @relation("WordSubmitter")
+  rounds        VotingRound[]  @relation("RoundOpener")
+  auditLogs     AuditLog[]
+  accessLinks   AccessLink[]   @relation("AccessLinkCreator")
+  notifications Notification[]
+  electionVotes ElectionVote[]
+  gameEntries   GameEntry[]
+  gameVotes     GameVote[]
+  guestAccesses GuestAccess[]
 
   @@map("user")
 }
@@ -123,9 +134,9 @@ model Passkey {
 
 // ───────────────────────── Roles & access ─────────────────────────
 
-// Exactly two curator seats exist (1 and 2). A seat is the right to vote.
+// A seat is the right to vote. Seats 1..voterCount (admin setting).
 model CuratorSeat {
-  seat      Int      @id // 1 | 2, enforced by CHECK constraint in migration
+  seat      Int      @id // >= 1, enforced by CHECK constraint in migration
   userId    String   @unique
   user      User     @relation(fields: [userId], references: [id], onDelete: Restrict)
   createdAt DateTime @default(now())
@@ -141,18 +152,18 @@ enum AccessLinkKind {
 // One-time links for invitations and admin-issued password resets.
 // Only a SHA-256 hash of the token is stored.
 model AccessLink {
-  id           String         @id @default(cuid())
-  kind         AccessLinkKind
-  tokenHash    String         @unique
-  email        String?
-  userId       String? // RESET: target user
-  grantAdmin   Boolean        @default(false)
-  grantSeat    Int? // INVITE: curator seat to assign
-  expiresAt    DateTime
-  usedAt       DateTime?
-  createdById  String?
-  createdBy    User?          @relation("AccessLinkCreator", fields: [createdById], references: [id], onDelete: SetNull)
-  createdAt    DateTime       @default(now())
+  id          String         @id @default(cuid())
+  kind        AccessLinkKind
+  tokenHash   String         @unique
+  email       String?
+  userId      String? // RESET: target user
+  grantAdmin  Boolean        @default(false)
+  grantSeat   Int? // INVITE: curator seat to assign
+  expiresAt   DateTime
+  usedAt      DateTime?
+  createdById String?
+  createdBy   User?          @relation("AccessLinkCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt   DateTime       @default(now())
 
   @@map("access_link")
 }
@@ -182,28 +193,28 @@ enum WordSource {
 }
 
 model Word {
-  id            String        @id @default(cuid())
-  term          String
-  normalized    String        @unique
-  slug          String        @unique
-  status        WordStatus    @default(VOTING)
+  id             String        @id @default(cuid())
+  term           String
+  normalized     String        @unique
+  slug           String        @unique
+  status         WordStatus    @default(VOTING)
   // Public visibility is derived by the voting state machine (accepted and
   // not vetoed in a running re-evaluation). Never set it anywhere else.
-  isPublic      Boolean       @default(false)
-  cardNumber    Int?          @unique // assigned on first acceptance
-  partOfSpeech  PartOfSpeech?
-  grammar       String? // e.g. "maskulin", "der; -es, -e"
-  usage         String? // Verwendung / Kontext
-  origin        String? // Herkunft
-  variants      String[]      @default([]) // alternative spellings
+  isPublic       Boolean       @default(false)
+  cardNumber     Int?          @unique // assigned on first acceptance
+  partOfSpeech   PartOfSpeech?
+  grammar        String? // e.g. "maskulin", "der; -es, -e"
+  usage          String? // Verwendung / Kontext
+  origin         String? // Herkunft
+  variants       String[]      @default([]) // alternative spellings
   submissionNote String? // free text from whoever suggested it
-  source        WordSource    @default(CURATOR)
-  submittedById String?
-  submittedBy   User?         @relation("WordSubmitter", fields: [submittedById], references: [id], onDelete: SetNull)
-  guestName     String?
-  acceptedAt    DateTime? // last time the word entered the collection
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
+  source         WordSource    @default(CURATOR)
+  submittedById  String?
+  submittedBy    User?         @relation("WordSubmitter", fields: [submittedById], references: [id], onDelete: SetNull)
+  guestName      String?
+  acceptedAt     DateTime? // last time the word entered the collection
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
 
   definitions    Definition[]
   pronunciations Pronunciation[]
@@ -214,6 +225,11 @@ model Word {
   dailyWords     DailyWord[]
   aiDrafts       AiDraft[]
   submissions    Submission[]
+  favoredBy      User[]          @relation("FavoriteWord")
+  notifications  Notification[]
+  electionVotes  ElectionVote[]
+  electionWins   Election[]
+  gameRounds     GameRound[]
 
   @@index([status])
   @@index([isPublic, term])
@@ -223,9 +239,9 @@ model Word {
 
 // A word can have several numbered meanings.
 model Definition {
-  id       String @id @default(cuid())
+  id       String  @id @default(cuid())
   wordId   String
-  word     Word   @relation(fields: [wordId], references: [id], onDelete: Cascade)
+  word     Word    @relation(fields: [wordId], references: [id], onDelete: Cascade)
   position Int
   text     String // short definition, one or two sentences
   detail   String? // optional longer explanation
@@ -265,6 +281,10 @@ model Category {
   name      String         @unique
   slug      String         @unique
   color     String         @default("ink") // palette key, see lib/categories.ts
+  // Words in an NSFW category are hidden in SFW mode.
+  nsfw      Boolean        @default(false)
+  // Auto-tagging: a word whose text contains one of these gets the category.
+  keywords  String[]       @default([])
   createdAt DateTime       @default(now())
   words     WordCategory[]
 
@@ -276,6 +296,7 @@ model WordCategory {
   categoryId String
   word       Word     @relation(fields: [wordId], references: [id], onDelete: Cascade)
   category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  auto       Boolean  @default(false) // set by the tagging algorithm, not by a person
 
   @@id([wordId, categoryId])
   @@index([categoryId])
@@ -313,6 +334,7 @@ model VotingRound {
   openedBy   User?         @relation("RoundOpener", fields: [openedById], references: [id], onDelete: SetNull)
   openedAt   DateTime      @default(now())
   closedAt   DateTime?
+  deadline   DateTime? // optional voting deadline (admin setting)
   outcome    RoundOutcome?
   votes      Vote[]
   comments   Comment[]
@@ -383,9 +405,9 @@ model Submission {
 // ───────────────────────── Misc ─────────────────────────
 
 model DailyWord {
-  day    String   @id // YYYY-MM-DD in Europe/Berlin
-  wordId String
-  word   Word     @relation(fields: [wordId], references: [id], onDelete: Cascade)
+  day      String   @id // YYYY-MM-DD in Europe/Berlin
+  wordId   String
+  word     Word     @relation(fields: [wordId], references: [id], onDelete: Cascade)
   pickedAt DateTime @default(now())
 
   @@index([wordId])
@@ -434,4 +456,149 @@ model AppSetting {
   updatedAt DateTime @updatedAt
 
   @@map("app_setting")
+}
+
+// ───────────────────────── Notifications ─────────────────────────
+
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  wordId    String?
+  word      Word?     @relation(fields: [wordId], references: [id], onDelete: Cascade)
+  body      String
+  href      String?
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, readAt])
+  @@map("notification")
+}
+
+// ───────────────────────── Guests ─────────────────────────
+
+// Admin-issued guest link: single use or valid until expiresAt.
+model GuestAccess {
+  id          String         @id @default(cuid())
+  tokenHash   String         @unique
+  label       String?
+  singleUse   Boolean        @default(false)
+  expiresAt   DateTime
+  usedAt      DateTime?
+  revokedAt   DateTime?
+  createdById String?
+  createdBy   User?          @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt   DateTime       @default(now())
+  sessions    GuestSession[]
+
+  @@map("guest_access")
+}
+
+// One guest identity (browser). Created by redeeming a link or, in open mode,
+// on the first visit. Community votes are tied to it.
+model GuestSession {
+  id        String         @id @default(cuid())
+  tokenHash String         @unique
+  accessId  String?
+  access    GuestAccess?   @relation(fields: [accessId], references: [id], onDelete: Cascade)
+  expiresAt DateTime?
+  createdAt DateTime       @default(now())
+  votes     ElectionVote[]
+
+  @@map("guest_session")
+}
+
+// ───────────────────────── Wort des Jahres ─────────────────────────
+
+enum ElectionKind {
+  JURY // members vote
+  COMMUNITY // members and guests vote
+}
+
+// Three stages: nominate (from nominateFrom), shortlist (from shortlistFrom),
+// final (from finalFrom) until endsAt. The stage is derived from the dates.
+model Election {
+  id             String         @id @default(cuid())
+  kind           ElectionKind
+  year           Int
+  nominateFrom   DateTime
+  shortlistFrom  DateTime
+  finalFrom      DateTime
+  endsAt         DateTime
+  nominations    Int            @default(3) // stage 1: picks per voter
+  shortlistVotes Int            @default(3) // stage 2: up- and downvotes per voter
+  finalists      Int            @default(5) // words that reach stage 3
+  winnerWordId   String?
+  winner         Word?          @relation(fields: [winnerWordId], references: [id], onDelete: SetNull)
+  decidedAt      DateTime?
+  createdAt      DateTime       @default(now())
+  votes          ElectionVote[]
+
+  @@unique([kind, year])
+  @@map("election")
+}
+
+model ElectionVote {
+  id         String        @id @default(cuid())
+  electionId String
+  election   Election      @relation(fields: [electionId], references: [id], onDelete: Cascade)
+  stage      Int // 1 | 2 | 3
+  wordId     String
+  word       Word          @relation(fields: [wordId], references: [id], onDelete: Cascade)
+  value      Int // +1 | -1 (stage 1 is always +1)
+  userId     String?
+  user       User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  guestId    String?
+  guest      GuestSession? @relation(fields: [guestId], references: [id], onDelete: Cascade)
+  createdAt  DateTime      @default(now())
+
+  @@unique([electionId, stage, wordId, userId])
+  @@unique([electionId, stage, wordId, guestId])
+  @@index([electionId, stage])
+  @@map("election_vote")
+}
+
+// ───────────────────────── Minispiele ─────────────────────────
+
+// One round per game and Berlin day. game = key in lib/games.ts.
+model GameRound {
+  id        String      @id @default(cuid())
+  game      String
+  day       String // YYYY-MM-DD Europe/Berlin
+  wordId    String
+  word      Word        @relation(fields: [wordId], references: [id], onDelete: Cascade)
+  createdAt DateTime    @default(now())
+  entries   GameEntry[]
+  votes     GameVote[]
+
+  @@unique([game, day])
+  @@map("game_round")
+}
+
+model GameEntry {
+  id        String     @id @default(cuid())
+  roundId   String
+  round     GameRound  @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  text      String?
+  audioPath String?
+  createdAt DateTime   @default(now())
+  votes     GameVote[]
+
+  @@unique([roundId, userId])
+  @@map("game_entry")
+}
+
+model GameVote {
+  id      String    @id @default(cuid())
+  roundId String
+  round   GameRound @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  voterId String
+  voter   User      @relation(fields: [voterId], references: [id], onDelete: Cascade)
+  entryId String
+  entry   GameEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+
+  @@unique([roundId, voterId])
+  @@map("game_vote")
 }

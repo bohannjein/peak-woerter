@@ -12,7 +12,7 @@ Given by the brief: Next.js (App Router, TypeScript), PostgreSQL, Prisma, Tailwi
 
 ## Users
 
-- **Two curators** (friends, equal rights). Mostly on their phones, in spare moments: they hear a great word, add it in seconds, and later swipe through pending words. Sometimes they sit together and go through the "Später" list in a discussion session.
+- **Curators** (friends, equal rights; two by default, the admin can set more voters and the decision rule). Mostly on their phones, in spare moments: they hear a great word, add it in seconds, and later swipe through pending words. Sometimes they sit together and go through the "Später" list in a discussion session.
 - **One administrator** (may also be a curator). Sets up the instance, invites, security policy, categories, exports.
 - **Members** (the rest of the roughly three friends): read-only accounts by invitation, no vote. Nobody can see anything without logging in.
 
@@ -33,7 +33,7 @@ A dictionary with exactly two editors who must agree. The joint "yes" is the pro
 - Capture happens in the moment, on a phone, often one-handed.
 - Voting happens in batches, swipe-style.
 - Discussions of undecided words happen in person or asynchronously via comments.
-- The site is internal only (decided 2026-10-13): every page requires login, there are no guest suggestions and nothing is indexed.
+- The site is internal by default (decided 2026-10-13): every page requires login and nothing is indexed. Since 2026-10-19 the admin can enable a read-only guest mode (links or open for a while); guests never suggest words.
 - Year-end recap ("Peake Wrapped") as a small story.
 
 ## Capabilities and Constraints
@@ -59,10 +59,11 @@ No existing word data, logo or imagery. Do not fabricate sample words, statistic
 ## Product Principles
 
 1. Collecting and joint voting come first; the dictionary presentation comes second; everything else after.
-2. Two equal voices. No feature may give one curator more weight, including the admin.
+2. Equal voices. No feature may give one curator more weight, including the admin. Voting rights come only with a curator seat.
 3. Show only what is real: no placeholder fields, no guessed data presented as fact.
 4. Seconds, not minutes: the core actions work one-handed on a small phone.
-5. Private stays private: votes, comments and the negative list never reach visitors.
+5. Private stays private: votes, comments, names and the negative list never reach guests.
+6. Fun extras (minigame, Wort des Jahres, easter eggs) live in the side menu, never in the core flow.
 
 ## Accessibility & Inclusion
 

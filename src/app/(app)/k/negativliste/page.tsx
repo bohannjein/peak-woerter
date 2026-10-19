@@ -1,16 +1,16 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { db } from "@/lib/db";
-import { requireStaffPage } from "@/lib/access";
+import { requirePermissionPage } from "@/lib/access";
 import { formatDate } from "@/lib/time";
 import { ActionButton } from "@/components/ActionButton";
-import { openRoundAction } from "@/app/actions/words";
+import { deleteRejectedAction, openRoundAction } from "@/app/actions/words";
 
 export const metadata: Metadata = { title: "Negativliste", robots: { index: false } };
 export const dynamic = "force-dynamic";
 
 export default async function Negativliste() {
-  await requireStaffPage();
+  const v = await requirePermissionPage("negative");
   const words = await db.word.findMany({
     where: { status: "REJECTED" },
     orderBy: { updatedAt: "desc" },
@@ -25,8 +25,8 @@ export default async function Negativliste() {
       ) : (
         <ul className="mt-8">
           {words.map((w) => (
-            <li key={w.id} className="flex flex-wrap items-center justify-between gap-3 border-t border-line py-4">
-              <span>
+            <li key={w.id} className="flex flex-wrap items-center gap-3 border-t border-line py-4">
+              <span className="mr-auto">
                 <Link href={`/k/wort/${w.id}`} className="display text-[1.75rem] hover:underline">
                   {w.term}
                 </Link>
@@ -37,6 +37,11 @@ export default async function Negativliste() {
               <ActionButton action={openRoundAction.bind(null, w.id, "REVOTE", "Erneute Prüfung von der Negativliste")} confirm={`„${w.term}“ erneut zur Abstimmung stellen?`}>
                 Erneut prüfen
               </ActionButton>
+              {v.isAdmin && (
+                <ActionButton action={deleteRejectedAction.bind(null, w.id)} confirm={`„${w.term}“ endgültig von der Negativliste entfernen? Es kann danach wieder vorgeschlagen werden.`}>
+                  Entfernen
+                </ActionButton>
+              )}
             </li>
           ))}
         </ul>

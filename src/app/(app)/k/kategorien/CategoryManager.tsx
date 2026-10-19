@@ -4,10 +4,10 @@ import { useEffect, useRef, useState } from "react";
 import { Merge, Pencil, Trash2 } from "lucide-react";
 import { BAND_COLORS, BAND_LABEL, bandClass } from "@/lib/categories";
 import { deleteCategoryAction, mergeCategoryAction, saveCategoryAction } from "@/app/actions/words";
-import { FormError, useFormAction } from "@/components/form";
+import { FormError, Toggle, useFormAction } from "@/components/form";
 import { ActionButton } from "@/components/ActionButton";
 
-type Cat = { id: string; name: string; color: string; count: number };
+type Cat = { id: string; name: string; color: string; nsfw: boolean; keywords: string[]; count: number };
 
 function ColorPicker({ value }: { value?: string }) {
   return (
@@ -44,6 +44,14 @@ function CatForm({ cat, onDone }: { cat?: Cat; onDone?: () => void }) {
         <input id={`n-${cat?.id ?? "neu"}`} name="name" required maxLength={40} defaultValue={cat?.name} className="field" />
       </div>
       <ColorPicker value={cat?.color} />
+      <div>
+        <label htmlFor={`k-${cat?.id ?? "neu"}`} className="label">
+          Stichwörter für automatisches Taggen <span className="font-normal text-ink-3">(mit Komma getrennt)</span>
+        </label>
+        <input id={`k-${cat?.id ?? "neu"}`} name="keywords" defaultValue={cat?.keywords.join(", ")} className="field" placeholder="z. B. essen, koch, küche" />
+        <p className="hint">Wörter, deren Text ein Wort mit diesem Anfang enthält, bekommen die Kategorie automatisch.</p>
+      </div>
+      <Toggle name="nsfw" label="18+ / nicht jugendfrei" hint="Wörter mit dieser Kategorie sind im SFW-Modus ausgeblendet." defaultChecked={cat?.nsfw} />
       <FormError state={state} />
       <button className="btn btn-primary" disabled={pending}>
         {cat ? "Speichern" : "Kategorie anlegen"}
@@ -65,6 +73,8 @@ export function CategoryManager({ categories }: { categories: Cat[] }) {
                 <span className="size-4 rounded-full" style={{ background: "var(--band)" }} aria-hidden />
                 <span className="text-lg font-bold">{c.name}</span>
                 <span className="tabular text-sm text-ink-3">{c.count} Wörter</span>
+                {c.nsfw && <span className="rounded-full bg-no px-2 py-0.5 text-xs font-bold text-white">18+</span>}
+                {c.keywords.length > 0 && <span className="text-sm text-ink-3">auto: {c.keywords.join(", ")}</span>}
               </span>
               <span className="flex gap-1">
                 <button type="button" className="grid size-10 place-items-center rounded-full hover:bg-table-2" aria-label={`${c.name} bearbeiten`} onClick={() => setEditing(editing === c.id ? null : c.id)}>

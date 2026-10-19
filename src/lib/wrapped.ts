@@ -7,7 +7,7 @@ export type Wrapped = {
   accepted: number; // first acceptances this year
   rejected: number;
   sentLater: number;
-  disagreements: number; // decided rounds where the two votes differed
+  disagreements: number; // decided rounds where the votes differed
   topSubmitters: { name: string; count: number }[];
   busiestMonth: { month: number; count: number } | null; // by accepted words; null on a tie
   topCategories: { name: string; count: number }[];
@@ -84,7 +84,7 @@ export async function computeWrapped(db: Db, year: number): Promise<Wrapped> {
     accepted: acceptedIds.size,
     rejected: rounds.filter((r) => r.outcome === "REJECTED").length,
     sentLater: rounds.filter((r) => r.outcome === "LATER").length,
-    disagreements: rounds.filter((r) => r.votes.length === 2 && r.votes[0].value !== r.votes[1].value).length,
+    disagreements: rounds.filter((r) => new Set(r.votes.map((v) => v.value)).size > 1).length,
     topSubmitters,
     busiestMonth,
     topCategories,

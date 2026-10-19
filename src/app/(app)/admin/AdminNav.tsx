@@ -6,6 +6,9 @@ import { usePathname } from "next/navigation";
 const ITEMS = [
   ["/admin", "System"],
   ["/admin/benutzer", "Benutzer"],
+  ["/admin/einstellungen", "Abstimmung & Funktionen"],
+  ["/admin/gaeste", "Gäste"],
+  ["/admin/wort-des-jahres", "Wort des Jahres"],
   ["/admin/sicherheit", "Richtlinien"],
   ["/k/kategorien", "Kategorien"],
   ["/k/negativliste", "Negativliste"],

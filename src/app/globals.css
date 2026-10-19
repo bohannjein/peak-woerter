@@ -344,3 +344,37 @@ a {
   -webkit-mask-image: repeating-linear-gradient(115deg, #000 0 7px, rgb(0 0 0 / 0.78) 7px 9px);
   mask-image: repeating-linear-gradient(115deg, #000 0 7px, rgb(0 0 0 / 0.78) 7px 9px);
 }
+
+/* Side menu (native popover), slides in from the right. */
+.side-menu {
+  inset: 0 0 0 auto;
+}
+.side-menu::backdrop {
+  background: rgb(0 0 0 / 0.4);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .side-menu:popover-open {
+    animation: side-in 220ms var(--ease-out-expo, ease-out);
+  }
+}
+@keyframes side-in {
+  from { transform: translateX(100%); }
+}
+
+/* Easter egg (Konami code). */
+@media (prefers-reduced-motion: no-preference) {
+  .peak-mode .card-stock {
+    animation: peak-lap 1.1s var(--ease-out-expo);
+  }
+}
+@keyframes peak-lap {
+  50% { transform: translateY(-1.5rem) rotate(8deg) scale(1.04); }
+}
+
+/* Print (PDF export): only the sheet, black on white. */
+@media print {
+  header, nav, .side-menu, [href="#inhalt"] { display: none !important; }
+  :root, :root[data-theme="dark"] { --table: #fff; --ink: #000; --ink-2: #333; --ink-3: #555; --line: #bbb; color-scheme: light; }
+  body { background: #fff !important; }
+  main { padding-bottom: 0 !important; }
+}

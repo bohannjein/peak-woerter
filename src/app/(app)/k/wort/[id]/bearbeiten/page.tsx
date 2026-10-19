@@ -1,9 +1,9 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { db } from "@/lib/db";
-import { requireStaffPage } from "@/lib/access";
+import { requirePermissionPage } from "@/lib/access";
 import { getSettings } from "@/lib/settings";
 import { getAiProvider, type Suggestion } from "@/lib/ai";
 import { EntryEditor } from "./EntryEditor";
@@ -12,9 +12,8 @@ export const metadata: Metadata = { title: "Eintrag bearbeiten", robots: { index
 export const dynamic = "force-dynamic";
 
 export default async function Bearbeiten({ params }: { params: Promise<{ id: string }> }) {
-  const v = await requireStaffPage();
+  await requirePermissionPage("edit");
   const { id } = await params;
-  if (!v.seat) redirect(`/k/wort/${id}`);
   const [w, categories, settings] = await Promise.all([
     db.word.findUnique({
       where: { id },

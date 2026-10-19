@@ -3,7 +3,10 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { ArrowLeft, Pencil, Shuffle } from "lucide-react";
 import { db } from "@/lib/db";
-import { getPublicEntry } from "@/lib/queries";
+import { getPublicEntry, publicWhere } from "@/lib/queries";
+import { sfwOn } from "@/lib/sfw";
+import { can } from "@/lib/permissions";
+import { ChallengeButton, FavoriteButton } from "@/components/WordMemberActions";
 import { getViewer } from "@/lib/access";
 import { toCard } from "@/lib/cards";
 import { POS_LABEL, bandClass, cardNo } from "@/lib/categories";
@@ -22,14 +25,33 @@ export async function generateMetadata({ params }: P): Promise<Metadata> {
 }
 
 export default async function WordPage({ params }: P) {
-  const w = await getPublicEntry(db, (await params).slug);
-  if (!w) notFound();
+  const { slug } = await params;
+  const sfw = await sfwOn();
+  const w = await getPublicEntry(db, slug, sfw);
+  if (!w) {
+    if (sfw && (await getPublicEntry(db, slug))) {
+      return (
+        <div className="mx-auto max-w-xl px-4 pt-16">
+          <p className="page-title">Im SFW-Modus ausgeblendet.</p>
+          <p className="mt-3 text-ink-2">Dieses Wort ist als 18+ getaggt. Zum Ansehen den SFW-Modus oben ausschalten.</p>
+        </div>
+      );
+    }
+    notFound();
+  }
   const viewer = await getViewer();
+  const [fans, me, openRound] = viewer
+    ? await Promise.all([
+        db.user.findMany({ where: { favoriteWordId: w.id, disabled: false }, select: { id: true, name: true } }),
+        db.user.findUnique({ where: { id: viewer.id }, select: { favoriteWordId: true } }),
+        db.votingRound.findFirst({ where: { wordId: w.id, closedAt: null }, select: { id: true } }),
+      ])
+    : [[], null, null];
   const pron = w.pronunciations.filter((p) => p.verified);
   const catIds = w.categories.map((c) => c.category.slug);
   const related = catIds.length
     ? await db.word.findMany({
-        where: { isPublic: true, id: { not: w.id }, categories: { some: { category: { slug: { in: catIds } } } } },
+        where: { ...publicWhere(sfw), id: { not: w.id }, categories: { some: { category: { slug: { in: catIds } } } } },
         select: { term: true, slug: true },
         orderBy: { normalized: "asc" },
         take: 8,
@@ -150,12 +172,20 @@ export default async function WordPage({ params }: P) {
             <Link href="/zufall" className="btn btn-quiet btn-sm">
               <Shuffle size={18} aria-hidden /> Zufälliges Wort
             </Link>
-            {(viewer?.seat || viewer?.isAdmin) && (
-              <Link href={`/k/wort/${w.id}`} className="btn btn-quiet btn-sm">
+            {can(viewer, "edit") && (
+              <Link href={`/k/wort/${w.id}/bearbeiten`} className="btn btn-quiet btn-sm">
                 <Pencil size={17} aria-hidden /> Bearbeiten
               </Link>
             )}
+            {viewer && <FavoriteButton wordId={w.id} active={me?.favoriteWordId === w.id} />}
+            {viewer && !openRound && <ChallengeButton wordId={w.id} term={w.term} />}
           </div>
+          {viewer && (fans.length > 0 || openRound) && (
+            <p className="mt-4 text-sm text-ink-2">
+              {fans.length > 0 && <>Lieblingswort von {fans.map((f, i) => <span key={f.id}>{i > 0 && ", "}<Link href={`/profil/${f.id}`} className="font-semibold underline decoration-line hover:decoration-ink">{f.name}</Link></span>)}. </>}
+              {openRound && "Wird gerade neu bewertet."}
+            </p>
+          )}
         </article>
 
         <aside className="hidden md:sticky md:top-24 md:block md:self-start" aria-label="Karte">

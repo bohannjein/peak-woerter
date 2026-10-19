@@ -1,12 +1,14 @@
 import "server-only";
 import { cache } from "react";
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { auth } from "./auth";
 import { db } from "./db";
 import { getSettings } from "./settings";
 import { policyGaps, type Gap } from "./policy";
 import { AppError } from "./errors";
+import { can, type Permission } from "./permissions";
+import { GUEST_COOKIE, guestSession } from "./guests";
 
 export type Viewer = {
   id: string;
@@ -14,6 +16,7 @@ export type Viewer = {
   email: string;
   isAdmin: boolean;
   seat: number | null;
+  permissions: string[];
   has2fa: boolean;
   passkeys: number;
   /** Missing security requirements; empty = policy satisfied. */
@@ -36,9 +39,16 @@ export const getViewer = cache(async (): Promise<Viewer | null> => {
     email: user.email,
     isAdmin: user.isAdmin,
     seat: user.curatorSeat?.seat ?? null,
+    permissions: user.permissions,
     ...v,
     missing: policyGaps(settings, v),
   };
+});
+
+/** Guest identity from the guest cookie, only while guest mode allows it. */
+export const getGuest = cache(async () => {
+  const token = (await cookies()).get(GUEST_COOKIE)?.value;
+  return token ? guestSession(db, token) : null;
 });
 
 const SECURITY_PAGE = "/konto?pflicht=1";
@@ -52,6 +62,20 @@ export async function requireStaffPage(): Promise<Viewer> {
   return v;
 }
 
+/** Pages: any account with the given right (curators and admins have all). */
+export async function requirePermissionPage(p: Permission): Promise<Viewer> {
+  const v = await requireMemberPage();
+  if (!can(v, p)) redirect("/");
+  return v;
+}
+
+export async function requireMemberPage(): Promise<Viewer> {
+  const v = await getViewer();
+  if (!v) redirect("/anmelden");
+  if (v.missing.length) redirect(SECURITY_PAGE);
+  return v;
+}
+
 export async function requireAdminPage(): Promise<Viewer> {
   const v = await requireStaffPage();
   if (!v.isAdmin) redirect("/k");
@@ -59,11 +83,22 @@ export async function requireAdminPage(): Promise<Viewer> {
 }
 
 /** Server actions: throw instead of redirect. */
-export async function requireStaff(): Promise<Viewer> {
+export async function requireMember(): Promise<Viewer> {
   const v = await getViewer();
   if (!v) throw new AppError("Bitte melde dich an.", 401);
   if (v.missing.length) throw new AppError("Zuerst Pflicht-Sicherheit einrichten.", 403);
+  return v;
+}
+
+export async function requireStaff(): Promise<Viewer> {
+  const v = await requireMember();
   if (!v.seat && !v.isAdmin) throw new AppError("Keine Berechtigung.", 403);
+  return v;
+}
+
+export async function requirePermission(p: Permission): Promise<Viewer> {
+  const v = await requireMember();
+  if (!can(v, p)) throw new AppError("Keine Berechtigung.", 403);
   return v;
 }
 

@@ -6,6 +6,8 @@ import { listPublicWords, publicCategories } from "@/lib/queries";
 import { bandClass } from "@/lib/categories";
 import { MiniCard } from "@/components/WordCard";
 import { EntryRow } from "@/components/EntryRow";
+import { sfwOn } from "@/lib/sfw";
+import { normalizeTerm } from "@/lib/text";
 
 export const metadata: Metadata = { title: "Sammlung" };
 export const dynamic = "force-dynamic";
@@ -19,10 +21,11 @@ function initial(term: string) {
 
 export default async function Sammlung({ searchParams }: { searchParams: SP }) {
   const sp = await searchParams;
-  const sort = sp.sort === "neu" ? "neu" : "az";
+  const sort = sp.sort === "neu" || sp.sort === "kat" ? sp.sort : "az";
   const view = sp.ansicht === "karten" ? "karten" : "liste";
   const q = sp.q?.slice(0, 100);
-  const [words, cats] = await Promise.all([listPublicWords(db, { q, kategorie: sp.kategorie, sort }), publicCategories(db)]);
+  const sfw = await sfwOn();
+  const [words, cats] = await Promise.all([listPublicWords(db, { q, kategorie: sp.kategorie, sort, sfw }), publicCategories(db, sfw)]);
 
   const href = (patch: Record<string, string | undefined>) => {
     const p = new URLSearchParams();
@@ -33,7 +36,12 @@ export default async function Sammlung({ searchParams }: { searchParams: SP }) {
   };
 
   const groups = new Map<string, typeof words>();
-  if (sort === "az") for (const w of words) groups.set(initial(w.term), [...(groups.get(initial(w.term)) ?? []), w]);
+  const add = (k: string, w: (typeof words)[number]) => groups.set(k, [...(groups.get(k) ?? []), w]);
+  if (sort === "az") for (const w of words) add(initial(w.term), w);
+  if (sort === "kat") {
+    for (const w of words) for (const c of w.categories.length ? w.categories.map((c) => c.category.name) : ["Ohne Kategorie"]) add(c, w);
+  }
+  const grouped = sort === "neu" ? [["", words] as const] : [...groups.entries()].sort(([a], [b]) => (sort === "kat" ? a.localeCompare(b, "de") : 0));
 
   return (
     <div className="mx-auto max-w-6xl px-4 pt-6 md:px-6 md:pt-10">
@@ -79,6 +87,9 @@ export default async function Sammlung({ searchParams }: { searchParams: SP }) {
             <Link href={href({ sort: "neu" })} className={`inline-flex min-h-11 items-center rounded-full px-3.5 text-sm font-semibold md:min-h-0 md:py-1.5 ${sort === "neu" ? "bg-ink text-table" : "text-ink-2"}`} aria-current={sort === "neu" ? "true" : undefined}>
               Neueste
             </Link>
+            <Link href={href({ sort: "kat" })} className={`inline-flex min-h-11 items-center rounded-full px-3.5 text-sm font-semibold md:min-h-0 md:py-1.5 ${sort === "kat" ? "bg-ink text-table" : "text-ink-2"}`} aria-current={sort === "kat" ? "true" : undefined}>
+              Kategorien
+            </Link>
           </div>
           <div className="flex rounded-full border-[1.5px] border-line p-0.5" role="group" aria-label="Ansicht">
             <Link href={href({ ansicht: undefined })} className={`grid size-11 place-items-center rounded-full md:size-9 ${view === "liste" ? "bg-ink text-table" : "text-ink-2"}`} aria-label="Listenansicht" aria-current={view === "liste" ? "true" : undefined}>
@@ -90,6 +101,10 @@ export default async function Sammlung({ searchParams }: { searchParams: SP }) {
           </div>
         </div>
       </div>
+
+      {q && /^peake?$/.test(normalizeTerm(q)) && (
+        <p className="mt-4 font-semibold text-ink-2">Du suchst den Gipfel? Du stehst drauf.</p>
+      )}
 
       {words.length === 0 ? (
         <div className="mt-16 max-w-md">
@@ -112,12 +127,12 @@ export default async function Sammlung({ searchParams }: { searchParams: SP }) {
         </ul>
       ) : (
         <div className="mt-6">
-          {(sort === "az" ? [...groups.entries()] : [["", words] as const]).map(([letter, list]) => (
-            <section key={letter || "all"} className="md:grid md:grid-cols-[2.5rem_1fr] md:gap-x-4" aria-label={letter ? `Buchstabe ${letter}` : undefined}>
+          {grouped.map(([letter, list]) => (
+            <section key={letter || "all"} className="md:grid md:grid-cols-[2.5rem_1fr] md:gap-x-4" aria-label={letter || undefined}>
               {letter && (
-                <h2 className="display border-b border-line pb-1 pt-5 text-xl text-ink-3 md:sticky md:top-20 md:self-start md:border-0 md:pt-3">{letter}</h2>
+                <h2 className={`display border-b border-line pb-1 pt-5 text-xl text-ink-3 md:self-start md:border-0 md:pt-3 ${sort === "kat" ? "md:col-span-2" : "md:sticky md:top-20"}`}>{letter}</h2>
               )}
-              <ul className={letter ? "" : "md:col-span-2"}>
+              <ul className={letter && sort === "az" ? "" : "md:col-span-2"}>
                 {list.map((w) => (
                   <EntryRow
                     key={w.id}
@@ -126,6 +141,8 @@ export default async function Sammlung({ searchParams }: { searchParams: SP }) {
                     ipa={w.pronunciations.find((p) => p.verified)?.ipa}
                     partOfSpeech={w.partOfSpeech}
                     definition={w.definitions[0]?.text}
+                    acceptedAt={w.acceptedAt}
+                    tags={w.categories}
                   />
                 ))}
               </ul>

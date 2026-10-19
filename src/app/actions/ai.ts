@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import { requireCurator } from "@/lib/access";
+import { requirePermission } from "@/lib/access";
 import { getSettings } from "@/lib/settings";
 import { getAiProvider } from "@/lib/ai";
 import { AppError, safeAction } from "@/lib/errors";
@@ -10,7 +10,7 @@ import { audit } from "@/lib/audit";
 
 export async function requestAiDraftAction(wordId: string) {
   return safeAction(async () => {
-    const v = await requireCurator();
+    const v = await requirePermission("edit");
     const provider = getAiProvider(await getSettings(db));
     if (!provider) throw new AppError("Keine KI konfiguriert.");
     const word = await db.word.findUnique({ where: { id: wordId } });
@@ -26,7 +26,7 @@ export async function requestAiDraftAction(wordId: string) {
 
 export async function setAiDraftStatusAction(draftId: string, status: "APPLIED" | "DISCARDED") {
   return safeAction(async () => {
-    await requireCurator();
+    await requirePermission("edit");
     await db.aiDraft.update({ where: { id: draftId }, data: { status } });
     return true;
   });

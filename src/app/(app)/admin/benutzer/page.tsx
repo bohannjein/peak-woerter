@@ -4,19 +4,23 @@ import { getViewer } from "@/lib/access";
 import { formatDate } from "@/lib/time";
 import { ActionButton } from "@/components/ActionButton";
 import { assignSeatAction, freeSeatAction, reset2faAction, revokeInviteAction, setAdminAction, setDisabledAction } from "@/app/actions/admin";
-import { InviteCreate, ResetLinkButton } from "./client";
+import { InviteCreate, PermissionsForm, ResetLinkButton } from "./client";
+import { getSettings } from "@/lib/settings";
+import { seatNumbers } from "@/lib/accounts";
 
 export const metadata: Metadata = { title: "Benutzer", robots: { index: false } };
 export const dynamic = "force-dynamic";
 
 export default async function Benutzer() {
   const me = (await getViewer())!;
-  const [users, invites, seats] = await Promise.all([
+  const [users, invites, seats, settings] = await Promise.all([
     db.user.findMany({ orderBy: { createdAt: "asc" }, include: { curatorSeat: true, _count: { select: { passkeys: true, sessions: true } } } }),
     db.accessLink.findMany({ where: { kind: "INVITE", usedAt: null, expiresAt: { gt: new Date() } }, orderBy: { createdAt: "desc" } }),
     db.curatorSeat.findMany(),
+    getSettings(db),
   ]);
-  const free = [1, 2].filter((s) => !seats.some((x) => x.seat === s));
+  const all = seatNumbers(settings.voterCount);
+  const free = all.filter((s) => !seats.some((x) => x.seat === s));
 
   return (
     <div className="space-y-14">
@@ -25,7 +29,7 @@ export default async function Benutzer() {
           Kuratorenplätze
         </h2>
         <ul className="mt-4 grid gap-3 sm:grid-cols-2">
-          {[1, 2].map((s) => {
+          {all.map((s) => {
             const seat = seats.find((x) => x.seat === s);
             const u = users.find((x) => x.id === seat?.userId);
             return (
@@ -34,8 +38,8 @@ export default async function Benutzer() {
                 <p className="display mt-1 text-3xl">{u?.name ?? "frei"}</p>
                 {seat && (
                   <div className="mt-3">
-                    <ActionButton action={freeSeatAction.bind(null, s)} confirm={`Platz ${s} freigeben?`}>
-                      Platz freigeben
+                    <ActionButton action={freeSeatAction.bind(null, s)} confirm={`Platz ${s} freigeben? Die Person verliert das Stimmrecht; ihre bisherigen Stimmen bleiben im Verlauf.`}>
+                      Stimmrecht entziehen
                     </ActionButton>
                   </div>
                 )}
@@ -73,12 +77,9 @@ export default async function Benutzer() {
                     2FA zurücksetzen
                   </ActionButton>
                 )}
-                {!u.curatorSeat &&
-                  free.map((s) => (
-                    <ActionButton key={s} action={assignSeatAction.bind(null, u.id, s)}>
-                      Platz {s} geben
-                    </ActionButton>
-                  ))}
+                {!u.curatorSeat && free[0] && (
+                  <ActionButton action={assignSeatAction.bind(null, u.id, free[0])}>Stimmrecht geben (Platz {free[0]})</ActionButton>
+                )}
                 {u.id !== me.id && (
                   <ActionButton action={setAdminAction.bind(null, u.id, !u.isAdmin)} confirm={u.isAdmin ? `${u.name} die Verwaltungsrechte entziehen?` : `${u.name} zum Administrator machen?`}>
                     {u.isAdmin ? "Admin entziehen" : "Zum Admin machen"}
@@ -90,6 +91,7 @@ export default async function Benutzer() {
                   </ActionButton>
                 )}
               </div>
+              {!u.curatorSeat && !u.isAdmin && <PermissionsForm userId={u.id} granted={u.permissions} />}
             </li>
           ))}
         </ul>

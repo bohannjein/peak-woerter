@@ -29,15 +29,24 @@ async function createUser(tx: Tx, input: { name: string; email: string; password
   return user;
 }
 
-async function assignSeat(tx: Tx, userId: string, seat: number) {
+export const seatNumbers = (n: number) => Array.from({ length: n }, (_, i) => i + 1);
+
+async function checkSeat(db: Db | Tx, seat: number) {
+  const { voterCount } = await getSettings(db);
+  if (!Number.isInteger(seat) || seat < 1 || seat > voterCount) throw new AppError("Ungültiger Platz.");
+}
+
+export async function assignSeat(tx: Db | Tx, userId: string, seat: number) {
+  await checkSeat(tx, seat);
+  if (await tx.curatorSeat.findUnique({ where: { userId } })) throw new AppError("Dieses Konto hat schon einen Platz.");
   const taken = await tx.curatorSeat.findUnique({ where: { seat } });
   if (taken) throw new AppError(`Kuratorenplatz ${seat} ist schon vergeben.`, 409);
   await tx.curatorSeat.create({ data: { seat, userId } });
 }
 
 export async function freeSeat(db: Db): Promise<number | null> {
-  const seats = await db.curatorSeat.findMany({ select: { seat: true } });
-  return [1, 2].find((s) => !seats.some((x) => x.seat === s)) ?? null;
+  const [seats, s] = await Promise.all([db.curatorSeat.findMany({ select: { seat: true } }), getSettings(db)]);
+  return seatNumbers(s.voterCount).find((s) => !seats.some((x) => x.seat === s)) ?? null;
 }
 
 // ───────────── Setup token ─────────────
@@ -86,6 +95,7 @@ const DAY = 24 * 60 * 60 * 1000;
 
 export async function createInvite(db: Db, input: { createdById: string; email?: string | null; grantAdmin: boolean; grantSeat: number | null }) {
   if (input.grantSeat) {
+    await checkSeat(db, input.grantSeat);
     const seat = await db.curatorSeat.findUnique({ where: { seat: input.grantSeat } });
     if (seat) throw new AppError(`Kuratorenplatz ${input.grantSeat} ist schon vergeben.`, 409);
   }

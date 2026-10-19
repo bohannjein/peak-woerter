@@ -51,7 +51,7 @@ export default async function Overview() {
       orderBy: { openedAt: "asc" },
     }),
     db.votingRound.findMany({
-      where: { closedAt: null, votes: { some: { seat } }, NOT: { votes: { some: { seat: seat === 1 ? 2 : 1 } } } },
+      where: { closedAt: null, votes: { some: { seat } } },
       select: { word: { select: { id: true, term: true } } },
       orderBy: { openedAt: "desc" },
       take: 5,
@@ -101,14 +101,14 @@ export default async function Overview() {
       )}
 
       <div className="mt-10 grid gap-x-12 gap-y-8 md:grid-cols-2">
-        <List title="Wartet auf die zweite Stimme" empty="Keine." items={waiting.map((w) => ({ id: w.word.id, term: w.word.term }))} />
+        <List title="Wartet auf weitere Stimmen" empty="Keine." items={waiting.map((w) => ({ id: w.word.id, term: w.word.term }))} />
         <List
           title={`Später-Liste${laterCount ? ` (${laterCount})` : ""}`}
           empty="Keine."
           href="/k/spaeter"
           items={later.map((w) => ({ id: w.id, term: w.term, meta: w._count.comments ? `${w._count.comments} Kommentar${w._count.comments === 1 ? "" : "e"}` : undefined }))}
         />
-        <List title="Laufende Neubewertungen" empty="Keine." items={reviews.map((r) => ({ id: r.word.id, term: r.word.term }))} />
+        <List title="Laufende Anfechtungen" empty="Keine." items={reviews.map((r) => ({ id: r.word.id, term: r.word.term }))} />
         <List
           title="Zuletzt aufgenommen"
           empty="Keine."
@@ -124,6 +124,15 @@ export default async function Overview() {
         )}
         <Link href="/k/kategorien" className="chip">
           Kategorien
+        </Link>
+        <Link href="/pflege" className="chip">
+          Datenbank pflegen
+        </Link>
+        <Link href="/spiele" className="chip">
+          Minispiele
+        </Link>
+        <Link href="/wort-des-jahres" className="chip">
+          Wort des Jahres
         </Link>
         <Link href="/k/negativliste" className="chip">
           Negativliste

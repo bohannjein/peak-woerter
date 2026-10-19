@@ -53,12 +53,15 @@ describe("Einladungen", () => {
     await expect(acceptInvite(db, { token, name: "Ben2", email: "ben@x.de", password: PW })).rejects.toThrow(/ungültig oder abgelaufen/);
   });
 
-  it("es gibt höchstens zwei Kuratorensitze", async () => {
+  it("es gibt höchstens so viele Kuratorensitze wie Voter eingestellt sind", async () => {
     await makeUser("A", { seat: 1 });
     await makeUser("B", { seat: 2 });
     const c = await makeUser("C");
-    await expect(db.curatorSeat.create({ data: { seat: 3, userId: c } })).rejects.toThrow();
+    await expect(db.curatorSeat.create({ data: { seat: 0, userId: c } })).rejects.toThrow();
     await expect(createInvite(db, { createdById: c, grantAdmin: false, grantSeat: 2 })).rejects.toThrow(/vergeben/);
+    await expect(createInvite(db, { createdById: c, grantAdmin: false, grantSeat: 3 })).rejects.toThrow(/Ungültiger Platz/);
+    await setSettings(db, { voterCount: 3 });
+    await createInvite(db, { createdById: c, grantAdmin: false, grantSeat: 3 });
   });
 
   it("abgelaufene Einladungen gelten nicht", async () => {

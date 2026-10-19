@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { db, setup } from "./helpers";
-import { castVote, decide, openRound, retractVote } from "@/lib/voting";
+import { castVote, decide, openRound, retractVote, settleRounds } from "@/lib/voting";
+import { setSettings } from "@/lib/settings";
+import { makeUser } from "./helpers";
 import { submitWord } from "@/lib/words";
 
 let u: Awaited<ReturnType<typeof setup>>;
@@ -21,11 +23,11 @@ describe("decide (Entscheidungstabelle)", () => {
     ["YES", "LATER", "LATER"],
     ["LATER", "NO", "LATER"],
     ["LATER", "LATER", "LATER"],
-  ] as const)("%s + %s = %s", (a, b, out) => expect(decide(a, b)).toBe(out));
+  ] as const)("%s + %s = %s", (a, b, out) => expect(decide([a, b], { n: 2 })).toBe(out));
 
   it("fehlende Stimme = ausstehend", () => {
-    expect(decide("YES", undefined)).toBeNull();
-    expect(decide(undefined, "NO")).toBeNull();
+    expect(decide(["YES"], { n: 2 })).toBeNull();
+    expect(decide(["NO"], { n: 2 })).toBeNull();
   });
 });
 
@@ -176,11 +178,11 @@ describe("Runden und Verlauf", () => {
     expect(after.acceptedAt).toEqual(before.acceptedAt);
   });
 
-  it("Neubewertung: Uneinigkeit = Später, beide Nein = Negativliste", async () => {
+  it("Anfechtung: Uneinigkeit = bleibt drin, nur beide Nein = Negativliste", async () => {
     const w1 = await accepted();
     await castVote(db, { wordId: w1.id, userId: u.a, value: "NO" });
     await castVote(db, { wordId: w1.id, userId: u.b, value: "YES" });
-    expect(await status(w1.id)).toMatchObject({ status: "LATER", isPublic: false });
+    expect(await status(w1.id)).toMatchObject({ status: "ACCEPTED", isPublic: true });
 
     const w2 = await submitWord(db, { term: "Kladderadatsch", userId: u.b });
     await castVote(db, { wordId: w2.id, userId: u.a, value: "YES" });
@@ -212,5 +214,59 @@ describe("Runden und Verlauf", () => {
   it("Datenbank verbietet öffentliche, nicht akzeptierte Wörter", async () => {
     const w = await word();
     await expect(db.word.update({ where: { id: w.id }, data: { isPublic: true } })).rejects.toThrow();
+  });
+});
+
+describe("Mehr als zwei Voter", () => {
+  it.each([
+    [["YES", "YES", "NO"], "majority", "ACCEPTED"],
+    [["NO", "NO", "YES"], "majority", "REJECTED"],
+    [["YES", "NO", "LATER"], "majority", "LATER"],
+    [["YES", "YES", "NO"], "unanimous", "REJECTED"],
+    [["YES", "YES", "YES"], "unanimous", "ACCEPTED"],
+    [["YES", "YES", "LATER"], "unanimous", "LATER"],
+  ] as const)("%j nach %s = %s", (votes, rule, out) => expect(decide([...votes], { n: 3, rule })).toBe(out));
+
+  it("Anfechtung braucht 100 % Nein", () => {
+    expect(decide(["NO", "NO", "YES"], { n: 3, review: true })).toBe("ACCEPTED");
+    expect(decide(["NO", "NO", "NO"], { n: 3, review: true })).toBe("REJECTED");
+  });
+
+  it("Frist: fehlende Stimmen zählen weder als Ja noch als Nein", () => {
+    expect(decide(["YES"], { n: 2, force: true })).toBe("LATER");
+    expect(decide(["YES", "YES"], { n: 3, force: true })).toBe("ACCEPTED");
+    expect(decide([], { n: 2, force: true })).toBe("LATER");
+  });
+
+  it("drei Kuratoren: Runde endet erst mit der dritten Stimme", async () => {
+    await setSettings(db, { voterCount: 3 });
+    const c = await makeUser("Cleo", { seat: 3 });
+    const w = await word();
+    await castVote(db, { wordId: w.id, userId: u.a, value: "YES" });
+    expect((await castVote(db, { wordId: w.id, userId: u.b, value: "YES" })).outcome).toBeNull();
+    expect((await castVote(db, { wordId: w.id, userId: c, value: "NO" })).outcome).toBe("ACCEPTED");
+  });
+});
+
+describe("Fristen und Benachrichtigungen", () => {
+  it("abgelaufene Frist entscheidet mit den abgegebenen Stimmen", async () => {
+    await setSettings(db, { voteDeadlineHours: 1 });
+    const w = await word();
+    const r = await db.votingRound.findFirstOrThrow({ where: { wordId: w.id } });
+    expect(r.deadline).toBeInstanceOf(Date);
+    await castVote(db, { wordId: w.id, userId: u.a, value: "NO" });
+    await settleRounds(db);
+    expect((await status(w.id)).status).toBe("VOTING");
+    await db.votingRound.update({ where: { id: r.id }, data: { deadline: new Date(Date.now() - 1000) } });
+    await settleRounds(db);
+    expect((await status(w.id)).status).toBe("LATER");
+  });
+
+  it("Später: Einreicher und Ja-Stimmen bekommen eine Nachricht", async () => {
+    const w = await word();
+    await castVote(db, { wordId: w.id, userId: u.a, value: "NO" });
+    await castVote(db, { wordId: w.id, userId: u.b, value: "YES" });
+    const n = await db.notification.findMany({ select: { userId: true } });
+    expect(n.map((x) => x.userId).sort()).toEqual([u.a, u.b].sort());
   });
 });

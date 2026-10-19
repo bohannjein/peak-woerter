@@ -2,7 +2,9 @@ import Link from "next/link";
 import { Search, Shuffle } from "lucide-react";
 import { db } from "@/lib/db";
 import { getWordOfDay } from "@/lib/daily";
-import { publicCategories, publicEntrySelect, publicWordWhere } from "@/lib/queries";
+import { publicCategories, publicEntrySelect, publicWhere } from "@/lib/queries";
+import { sfwOn } from "@/lib/sfw";
+import { WordOfYear } from "@/components/WordOfYear";
 import { toCard } from "@/lib/cards";
 import { bandClass } from "@/lib/categories";
 import { formatDate } from "@/lib/time";
@@ -12,13 +14,16 @@ import { EntryRow } from "@/components/EntryRow";
 export const dynamic = "force-dynamic";
 
 export default async function Home() {
+  const sfw = await sfwOn();
+  const where = publicWhere(sfw);
   const [daily, latest, total, cats] = await Promise.all([
     getWordOfDay(db),
-    db.word.findMany({ where: publicWordWhere, select: publicEntrySelect, orderBy: { acceptedAt: "desc" }, take: 8 }),
-    db.word.count({ where: publicWordWhere }),
-    publicCategories(db),
+    db.word.findMany({ where, select: publicEntrySelect, orderBy: { acceptedAt: "desc" }, take: 8 }),
+    db.word.count({ where }),
+    publicCategories(db, sfw),
   ]);
-  const dailyFull = daily ? await db.word.findUnique({ where: { id: daily.id }, select: publicEntrySelect }) : null;
+  // In SFW mode an NSFW word of the day is simply not shown.
+  const dailyFull = daily ? await db.word.findFirst({ where: { ...where, id: daily.id }, select: publicEntrySelect }) : null;
 
   return (
     <div className="mx-auto max-w-6xl px-4 pt-6 md:px-6 md:pt-10">
@@ -45,6 +50,8 @@ export default async function Home() {
           )}
         </p>
       </header>
+
+      <WordOfYear />
 
       {total === 0 ? (
         <p className="mt-12 text-ink-2">Noch keine Wörter.</p>
@@ -85,6 +92,8 @@ export default async function Home() {
                     ipa={w.pronunciations.find((p) => p.verified)?.ipa}
                     partOfSpeech={w.partOfSpeech}
                     definition={w.definitions[0]?.text}
+                    acceptedAt={w.acceptedAt}
+                    tags={w.categories}
                   />
                 ))}
               </ul>

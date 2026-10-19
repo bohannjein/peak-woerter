@@ -52,7 +52,7 @@ export async function setupInviteAction(_: unknown, fd: FormData) {
   return safeAction(async () => {
     const v = await requireSetupAdmin();
     const seat = await freeSeat(db);
-    if (!seat) throw new AppError("Beide Kuratorenplätze sind schon vergeben.");
+    if (!seat) throw new AppError("Alle Kuratorenplätze sind schon vergeben.");
     const email = fd.get("email") ? parse(Email, fd.get("email")) : null;
     const token = await createInvite(db, { createdById: v.id, email, grantAdmin: false, grantSeat: seat });
     return { link: `${siteUrl()}/einladung/${token}`, seat };

@@ -2,10 +2,11 @@
 
 import { useState, useTransition } from "react";
 import { Check, Copy } from "lucide-react";
-import { inviteAction, resetLinkAction } from "@/app/actions/admin";
+import { inviteAction, resetLinkAction, setPermissionsAction } from "@/app/actions/admin";
+import { PERMISSIONS, PERMISSION_KEYS } from "@/lib/permissions";
 import { FormError, useFormAction } from "@/components/form";
 
-function CopyLink({ link, note }: { link: string; note: string }) {
+export function CopyLink({ link, note }: { link: string; note: string }) {
   const [copied, setCopied] = useState(false);
   return (
     <div className="mt-3 rounded-2xl border-[1.5px] border-line p-4">
@@ -85,5 +86,25 @@ export function InviteCreate({ freeSeats }: { freeSeats: number[] }) {
       </button>
       {link && <CopyLink link={link} note="7 Tage gültig, einmalig." />}
     </form>
+  );
+}
+
+export function PermissionsForm({ userId, granted }: { userId: string; granted: string[] }) {
+  const [state, action, pending] = useFormAction(setPermissionsAction.bind(null, userId));
+  return (
+    <details className="mt-3">
+      <summary className="cursor-pointer text-sm font-semibold text-ink-2 hover:text-ink">Rechte {granted.length > 0 && `(${granted.length})`}</summary>
+      <form onSubmit={action} className="mt-3 space-y-2 rounded-2xl border-[1.5px] border-line p-4">
+        {PERMISSION_KEYS.map((p) => (
+          <label key={p} className="flex items-center gap-3">
+            <input type="checkbox" name={p} defaultChecked={granted.includes(p)} className="size-5 accent-[var(--ink)]" /> {PERMISSIONS[p]}
+          </label>
+        ))}
+        <FormError state={state} />
+        <button className="btn btn-primary btn-sm mt-2" disabled={pending}>
+          {state?.ok ? "Gespeichert" : "Speichern"}
+        </button>
+      </form>
+    </details>
   );
 }

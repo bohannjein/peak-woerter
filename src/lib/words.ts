@@ -3,6 +3,7 @@ import { AppError } from "./errors";
 import { audit } from "./audit";
 import { cleanIpa, cleanTerm, normalizeTerm, slugify } from "./text";
 import { castVote, openInitialRound, openRound } from "./voting";
+import { autoTag } from "./tagging";
 import type { PartOfSpeech, WordStatus } from "@/generated/prisma/enums";
 
 export type DuplicateInfo = { kind: "none" } | { kind: "word"; status: WordStatus; slug: string; term: string; id: string };
@@ -59,6 +60,7 @@ export async function submitWord(
     await audit(tx, input.userId, "word.submitted", "word", w.id, { term });
     return w;
   });
+  await autoTag(db, word.id);
   if (input.voteYes) await castVote(db, { wordId: word.id, userId: input.userId, value: "YES" });
   return word;
 }

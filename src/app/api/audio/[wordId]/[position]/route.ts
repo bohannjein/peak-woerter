@@ -2,23 +2,16 @@ import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { randomBytes } from "node:crypto";
 import { db } from "@/lib/db";
-import { getViewer } from "@/lib/access";
+import { getGuest, getViewer } from "@/lib/access";
+import { can } from "@/lib/permissions";
 import { audit } from "@/lib/audit";
+import { AUDIO_MIME, AUDIO_TYPES, MAX_AUDIO } from "@/lib/audio";
 
 // Real pronunciation recordings. Stored on the data volume, never in the DB.
 const DIR = join(process.env.DATA_DIR ?? "./data", "audio");
-const MAX = 3 * 1024 * 1024;
-const TYPES: Record<string, string> = {
-  "audio/mpeg": "mp3",
-  "audio/mp4": "m4a",
-  "audio/x-m4a": "m4a",
-  "audio/aac": "aac",
-  "audio/webm": "webm",
-  "audio/ogg": "ogg",
-  "audio/wav": "wav",
-  "audio/x-wav": "wav",
-};
-const MIME = Object.fromEntries(Object.entries(TYPES).map(([m, e]) => [e, m]));
+const MAX = MAX_AUDIO;
+const TYPES = AUDIO_TYPES;
+const MIME = AUDIO_MIME;
 
 type Ctx = { params: Promise<{ wordId: string; position: string }> };
 
@@ -31,7 +24,7 @@ async function find(ctx: Ctx) {
 
 async function curator() {
   const v = await getViewer();
-  return v?.seat && v.missing.length === 0 ? v : null;
+  return v && can(v, "edit") && v.missing.length === 0 ? v : null;
 }
 
 const err = (error: string, status: number) => Response.json({ error }, { status });
@@ -39,10 +32,10 @@ const err = (error: string, status: number) => Response.json({ error }, { status
 export async function GET(_: Request, ctx: Ctx) {
   const p = await find(ctx);
   if (!p?.audioPath) return err("Nicht gefunden.", 404);
-  // Internal archive: any logged-in account may listen; drafts only for staff.
+  // Accounts and guests may listen to public, confirmed recordings; drafts only for editors.
   const v = await getViewer();
-  if (!v) return err("Nicht gefunden.", 404);
-  if (!(p.word.isPublic && p.verified) && !v.seat && !v.isAdmin) return err("Nicht gefunden.", 404);
+  const isPublic = p.word.isPublic && p.verified;
+  if (!(v ? isPublic || can(v, "edit") : isPublic && (await getGuest()))) return err("Nicht gefunden.", 404);
   const data = await readFile(join(DIR, p.audioPath)).catch(() => null);
   if (!data) return err("Nicht gefunden.", 404);
   return new Response(data, {

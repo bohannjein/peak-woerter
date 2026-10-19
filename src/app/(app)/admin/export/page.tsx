@@ -10,11 +10,11 @@ export default function Export() {
         <h2 className="section-title">Export</h2>
         <p className="mt-2 text-ink-2">Ohne Passwörter und Schlüssel.</p>
         <div className="mt-5 flex flex-wrap gap-3">
-          <a href="/api/export?format=json" className="btn btn-primary" download>
+          <a href="/api/export?format=backup" className="btn btn-primary" download>
             <Download size={18} aria-hidden /> Alles als JSON
           </a>
-          <a href="/api/export?format=csv" className="btn btn-quiet" download>
-            <Download size={18} aria-hidden /> Sammlung als CSV
+          <a href="/export" className="btn btn-quiet">
+            Wortliste in anderen Formaten
           </a>
         </div>
       </section>

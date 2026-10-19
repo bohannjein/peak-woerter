@@ -16,3 +16,15 @@ export function berlinYear(d: Date): number {
 export function berlinMonth(d: Date): number {
   return Number(new Intl.DateTimeFormat("en-CA", { timeZone: TZ, month: "numeric" }).format(d));
 }
+
+/** "YYYY-MM-DDTHH:mm" (datetime-local, meant as Berlin time) to an instant. */
+export function fromBerlinLocal(s: string): Date {
+  const guess = new Date(`${s}Z`);
+  const wall = (tz: string) => new Date(guess.toLocaleString("en-US", { timeZone: tz })).getTime();
+  return new Date(guess.getTime() - (wall(TZ) - wall("UTC")));
+}
+
+/** Instant to a datetime-local value in Berlin time. */
+export function toBerlinLocal(d: Date): string {
+  return new Intl.DateTimeFormat("sv-SE", { timeZone: TZ, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }).format(d).replace(" ", "T");
+}

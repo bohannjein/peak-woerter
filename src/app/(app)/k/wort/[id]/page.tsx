@@ -3,7 +3,10 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { ArrowLeft, ExternalLink, Pencil } from "lucide-react";
 import { db } from "@/lib/db";
-import { requireStaffPage } from "@/lib/access";
+import { requireMemberPage } from "@/lib/access";
+import { can } from "@/lib/permissions";
+import { PERMISSION_KEYS } from "@/lib/permissions";
+import { redirect } from "next/navigation";
 import { toCard } from "@/lib/cards";
 import { formatDate } from "@/lib/time";
 import { WordCard } from "@/components/WordCard";
@@ -14,7 +17,9 @@ export const metadata: Metadata = { title: "Wort", robots: { index: false } };
 export const dynamic = "force-dynamic";
 
 export default async function InternalWord({ params }: { params: Promise<{ id: string }> }) {
-  const v = await requireStaffPage();
+  const v = await requireMemberPage();
+  // Internal view (votes, discussion): curators, admins and members with any extra right.
+  if (!PERMISSION_KEYS.some((p) => can(v, p))) redirect("/");
   const { id } = await params;
   const w = await db.word.findUnique({
     where: { id },
@@ -44,7 +49,7 @@ export default async function InternalWord({ params }: { params: Promise<{ id: s
         <div className="md:sticky md:top-24 md:self-start">
           <WordCard data={toCard(w, { showUnverified: true, bandLabel: STATUS_LABEL[w.status] })} headingLevel={1} className="min-h-[24rem]" />
           <div className="mt-5 flex flex-wrap gap-2">
-            {v.seat && (
+            {can(v, "edit") && (
               <Link href={`/k/wort/${w.id}/bearbeiten`} className="btn btn-primary">
                 <Pencil size={17} aria-hidden /> Eintrag bearbeiten
               </Link>
@@ -79,17 +84,17 @@ export default async function InternalWord({ params }: { params: Promise<{ id: s
           )}
           {open && myVote && (
             <p className="mt-8 rounded-[20px] bg-table-2 p-5">
-              Deine Stimme: <strong>{VOTE_LABEL[myVote.value]}</strong> · zweite Stimme fehlt
+              Deine Stimme: <strong>{VOTE_LABEL[myVote.value]}</strong> · andere Stimmen fehlen noch
             </p>
           )}
-          {!open && (w.status === "LATER" || w.status === "REJECTED") && (
+          {!open && (w.status === "LATER" || w.status === "REJECTED") && (v.seat || v.isAdmin || (w.status === "REJECTED" && can(v, "negative"))) && (
             <div className="mt-8 flex flex-wrap items-center gap-3">
               <RoundButton wordId={w.id} kind="REVOTE" label={w.status === "REJECTED" ? "Erneut prüfen" : "Neue Abstimmungsrunde"} />
             </div>
           )}
           {!open && w.status === "ACCEPTED" && (
             <div className="mt-8 flex flex-wrap items-center gap-3">
-              <RoundButton wordId={w.id} kind="REVIEW" label="Neubewertung starten" confirm="Neubewertung starten?" />
+              <RoundButton wordId={w.id} kind="REVIEW" label="Anfechten" confirm="Wort anfechten? Es fliegt nur raus, wenn alle Kuratoren Nein sagen." />
             </div>
           )}
 
@@ -111,7 +116,7 @@ export default async function InternalWord({ params }: { params: Promise<{ id: s
                 ))}
               </ol>
             )}
-            {v.seat && <CommentForm wordId={w.id} />}
+            {can(v, "context") && <CommentForm wordId={w.id} />}
           </section>
 
           <section className="mt-12" aria-labelledby="verlauf">

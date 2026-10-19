@@ -71,7 +71,7 @@ export default async function Einrichtung({ searchParams }: { searchParams: Prom
         <>
           <h1 className="page-title">Kurator einladen</h1>
           <p className="mt-3 text-ink-2">
-            {seat ? `Platz ${seat} ist frei.` : "Beide Plätze belegt."}
+            {seat ? `Platz ${seat} ist frei.` : "Alle Plätze belegt."}
           </p>
           {seat && <InviteForm />}
           <Next href="?schritt=3" label={seat ? "Später einladen / weiter" : "Weiter"} />

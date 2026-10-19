@@ -118,7 +118,7 @@ test("Ergebnis: Mumpitz im Archiv, Firlefanz auf der Später-Liste", async () =>
 
   const b = await ben.newPage();
   await b.goto("/woerter");
-  await expect(b.getByRole("link", { name: /Mumpitz/ })).toBeVisible();
+  await expect(b.getByText("Mumpitz", { exact: true })).toBeVisible();
   await expect(b.getByText("Firlefanz")).toHaveCount(0);
   await b.goto("/wort/mumpitz");
   await expect(b.getByRole("heading", { level: 1, name: "Mumpitz" })).toBeVisible();
@@ -187,7 +187,9 @@ test("Nachschlagen: Startseite, Suche, Kategorie", async () => {
   await v.getByLabel("Wort suchen").fill("quatsch");
   await v.getByRole("button", { name: "Suchen" }).click();
   await expect(v).toHaveURL(/woerter\?q=quatsch/);
-  await expect(v.getByRole("link", { name: /Mumpitz/ })).toBeVisible();
+  // Collection rows show only the word; details open on tap.
+  await v.getByText("Mumpitz", { exact: true }).click();
+  await expect(v.getByRole("link", { name: /Ganzer Eintrag/ })).toBeVisible();
   await v.goto("/woerter?q=gibtsnicht");
   await expect(v.getByText("Keine Wörter gefunden")).toBeVisible();
 
@@ -205,5 +207,5 @@ test("Nachschlagen: Startseite, Suche, Kategorie", async () => {
   await v.goto("/woerter");
   await v.getByRole("link", { name: /Humor/ }).click();
   await expect(v).toHaveURL(/kategorie=humor/);
-  await expect(v.getByRole("link", { name: /Mumpitz/ })).toBeVisible();
+  await expect(v.getByText("Mumpitz", { exact: true })).toBeVisible();
 });
