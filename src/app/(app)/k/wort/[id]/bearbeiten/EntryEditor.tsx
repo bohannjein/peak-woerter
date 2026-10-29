@@ -7,6 +7,7 @@ import { saveEntryAction } from "@/app/actions/words";
 import { requestAiDraftAction, setAiDraftStatusAction } from "@/app/actions/ai";
 import { POS_LABEL, bandClass } from "@/lib/categories";
 import type { Suggestion } from "@/lib/ai";
+import { DraftBanner, LeaveGuard, useDraft } from "@/components/LeaveGuard";
 
 type Pron = { ipa: string; label: string; verified: boolean; position?: number; hasAudio?: boolean };
 type Form = {
@@ -41,11 +42,14 @@ export function EntryEditor({
   draft: { id: string; content: Suggestion } | null;
 }) {
   const router = useRouter();
-  const [f, setF] = useState<Form>({
+  const [saved, setSaved] = useState<Form>(() => ({
     ...initial,
     definitions: initial.definitions.length ? initial.definitions : [{ text: "", detail: "" }],
     examples: initial.examples.length ? initial.examples : [""],
-  });
+  }));
+  const [f, setF] = useState<Form>(saved);
+  const dirty = JSON.stringify(f) !== JSON.stringify(saved);
+  const local = useDraft(`peake-draft:wort:${wordId}`, f, dirty);
   const [meaningChanged, setMeaningChanged] = useState(false);
   const [msg, setMsg] = useState<{ t: string; ok: boolean } | null>(null);
   const [saving, startSave] = useTransition();
@@ -90,6 +94,8 @@ export function EntryEditor({
       if (!r.ok) return setMsg({ t: r.error, ok: false });
       setMsg({ t: r.data.essential && status === "ACCEPTED" ? "Gespeichert. Neubewertung gestartet." : "Gespeichert.", ok: true });
       setMeaningChanged(false);
+      setSaved(f);
+      local.clear();
       router.refresh();
     });
   }
@@ -115,6 +121,17 @@ export function EntryEditor({
 
   return (
     <div className="mt-8 space-y-10 pb-28">
+      <LeaveGuard dirty={dirty} onKeep={local.write} onDiscard={local.clear} />
+      {local.found && !dirty && (
+        <DraftBanner
+          at={local.found.at}
+          onRestore={() => {
+            setF(local.found!.value);
+            local.dismiss();
+          }}
+          onDiscard={local.clear}
+        />
+      )}
       {aiAvailable && (
         <section className="rounded-[20px] border-[1.5px] border-line p-5">
           <div className="flex flex-wrap items-center justify-between gap-3">

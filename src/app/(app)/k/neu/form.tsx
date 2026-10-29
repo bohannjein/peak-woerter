@@ -6,11 +6,16 @@ import { Check, Loader2 } from "lucide-react";
 import { submitWordAction } from "@/app/actions/words";
 import { checkDuplicateAction } from "@/app/actions/lookup";
 import { FormError, useFormAction } from "@/components/form";
+import { DraftBanner, LeaveGuard, useDraft } from "@/components/LeaveGuard";
 
 export function AddWordForm() {
   const [state, action, pending] = useFormAction(submitWordAction);
   const [dup, setDup] = useState<{ message: string; href?: string } | null>(null);
   const [showNote, setShowNote] = useState(false);
+  const [term, setTerm] = useState("");
+  const [note, setNote] = useState("");
+  const dirty = !!(term.trim() || note.trim());
+  const draft = useDraft("peake-draft:neu", { term, note }, dirty);
   const formRef = useRef<HTMLFormElement>(null);
   const termRef = useRef<HTMLInputElement>(null);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -18,6 +23,9 @@ export function AddWordForm() {
   useEffect(() => {
     if (state?.ok) {
       formRef.current?.reset();
+      setTerm("");
+      setNote("");
+      draft.clear();
       setDup(null);
       setShowNote(false);
       termRef.current?.focus();
@@ -34,6 +42,20 @@ export function AddWordForm() {
 
   return (
     <form ref={formRef} onSubmit={action} className="mt-8 space-y-5">
+      <LeaveGuard dirty={dirty} onKeep={draft.write} onDiscard={draft.clear} />
+      {draft.found && !dirty && (
+        <DraftBanner
+          at={draft.found.at}
+          onRestore={() => {
+            setTerm(draft.found!.value.term);
+            setNote(draft.found!.value.note);
+            setShowNote(!!draft.found!.value.note);
+            onTerm(draft.found!.value.term);
+            draft.dismiss();
+          }}
+          onDiscard={draft.clear}
+        />
+      )}
       <div>
         <label htmlFor="term" className="sr-only">
           Wort
@@ -51,7 +73,11 @@ export function AddWordForm() {
           placeholder="z. B. Kladderadatsch"
           aria-invalid={dup ? true : undefined}
           aria-describedby="dup"
-          onChange={(e) => onTerm(e.target.value)}
+          value={term}
+          onChange={(e) => {
+            setTerm(e.target.value);
+            onTerm(e.target.value);
+          }}
           className="field display h-20 text-[2.25rem] placeholder:font-normal placeholder:text-[1.4rem]"
         />
         <p id="dup" aria-live="polite" className="mt-2 min-h-6 text-[0.95rem] font-medium text-no">
@@ -72,7 +98,7 @@ export function AddWordForm() {
           <label htmlFor="note" className="label">
             Notiz
           </label>
-          <textarea id="note" name="note" rows={3} maxLength={1000} className="field" />
+          <textarea id="note" name="note" rows={3} maxLength={1000} value={note} onChange={(e) => setNote(e.target.value)} className="field" />
         </div>
       ) : (
         <button type="button" onClick={() => setShowNote(true)} className="text-[0.95rem] font-semibold text-ink-2 underline">
