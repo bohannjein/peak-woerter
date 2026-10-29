@@ -64,7 +64,7 @@ docker compose up -d --build
 docker compose logs -f app
 ```
 
-Die App lauscht auf `127.0.0.1:3000` (änderbar über `APP_PORT` und `APP_BIND`). Den Reverse Proxy auf diese Adresse zeigen lassen. Beispiel Caddy:
+Die App lauscht auf Port `3000` aller Netzwerkschnittstellen (änderbar über `APP_PORT` und `APP_BIND`). Den Reverse Proxy auf diese Adresse zeigen lassen. Beispiel Caddy:
 
 ```
 woerter.example.de {
@@ -90,7 +90,7 @@ Portainer klont das Repo und baut das Image selbst. Kein Shell-Zugriff nötig.
    | `POSTGRES_PASSWORD` | nur Buchstaben und Ziffern, z. B. `openssl rand -hex 32` |
    | `SETUP_TOKEN` | optional, sonst steht es im Container-Log von `app` |
    | `APP_PORT` | optional, Standard `3000` |
-   | `APP_BIND` | optional: `127.0.0.1` (Proxy auf demselben Host, Standard) oder `0.0.0.0` (Proxy auf anderem Rechner) |
+   | `APP_BIND` | optional: `0.0.0.0` (alle Schnittstellen, Standard; nötig für Proxy-Container oder Proxy auf anderem Rechner) oder `127.0.0.1` (nur Proxy direkt auf dem Host) |
 
 5. *Deploy the stack*. Der erste Build dauert einige Minuten.
 6. Reverse Proxy auf den App-Port zeigen lassen und `PUBLIC_URL` im Browser öffnen.
