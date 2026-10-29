@@ -3,11 +3,13 @@ import { db } from "@/lib/db";
 import { randomPublicSlug } from "@/lib/queries";
 import { getGuest, getViewer } from "@/lib/access";
 import { sfwOn } from "@/lib/sfw";
+import { siteUrl } from "@/lib/url";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(req: Request) {
-  if (!(await getViewer()) && !(await getGuest())) return NextResponse.redirect(new URL("/anmelden", req.url), 307);
+// Behind the reverse proxy req.url is the container address (localhost:3000), so build redirects from PUBLIC_URL.
+export async function GET() {
+  if (!(await getViewer()) && !(await getGuest())) return NextResponse.redirect(`${siteUrl()}/anmelden`, 307);
   const slug = await randomPublicSlug(db, await sfwOn());
-  return NextResponse.redirect(new URL(slug ? `/wort/${slug}` : "/woerter", req.url), 307);
+  return NextResponse.redirect(`${siteUrl()}${slug ? `/wort/${slug}` : "/woerter"}`, 307);
 }
