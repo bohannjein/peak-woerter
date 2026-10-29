@@ -2,13 +2,25 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BookOpen, Layers, Plus, Hourglass, User, Home, Shuffle, Lightbulb } from "lucide-react";
+import { BookOpen, Layers, Plus, Hourglass, User, Home, Shuffle, Lightbulb, Settings } from "lucide-react";
+import { Avatar } from "./Avatar";
 
-const icons = { BookOpen, Layers, Plus, Hourglass, User, Home, Shuffle, Lightbulb };
-export type NavItem = { href: string; label: string; icon: keyof typeof icons; badge?: number; primary?: boolean; exact?: boolean };
+const icons = { BookOpen, Layers, Plus, Hourglass, User, Home, Shuffle, Lightbulb, Settings };
+export type NavItem = {
+  href: string;
+  label: string;
+  icon: keyof typeof icons;
+  badge?: number;
+  primary?: boolean;
+  exact?: boolean;
+  /** Own-profile tab: shown as the avatar; on wide screens the header avatar replaces it. */
+  avatar?: { id: string; name: string; avatarPath: string | null };
+};
 
 function isActive(path: string, item: NavItem) {
-  if (item.exact || item.href === "/") return path === item.href || (item.href === "/k" && path === "/konto");
+  // Settings belong to the own profile.
+  if (item.avatar) return path === item.href || path === "/konto";
+  if (item.exact || item.href === "/") return path === item.href;
   return path === item.href || path.startsWith(item.href + "/");
 }
 
@@ -17,7 +29,7 @@ export function NavBar({ items }: { items: NavItem[] }) {
   const path = usePathname();
   return (
       <nav aria-label="Hauptnavigation" className="hidden md:flex items-center gap-1">
-        {items.map((item) => {
+        {items.filter((item) => !item.avatar).map((item) => {
           const active = isActive(path, item);
           const Icon = icons[item.icon];
           return (
@@ -63,7 +75,11 @@ export function TabBar({ items }: { items: NavItem[] }) {
                     active ? "text-ink" : "text-ink-3"
                   }`}
                 >
-                  {item.primary ? (
+                  {item.avatar ? (
+                    <span className={`rounded-full ring-2 ring-offset-2 ring-offset-table ${active ? "ring-ink" : "ring-transparent"}`}>
+                      <Avatar user={item.avatar} size={24} />
+                    </span>
+                  ) : item.primary ? (
                     <span className="grid size-11 place-items-center rounded-full bg-ink text-table -mt-1">
                       <Icon size={24} strokeWidth={2.6} aria-hidden />
                     </span>

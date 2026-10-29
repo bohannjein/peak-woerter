@@ -18,6 +18,7 @@ import { SideMenu, type MenuItem } from "@/components/SideMenu";
 import { InstallSw } from "@/components/InstallSw";
 import { EasterEggs } from "@/components/EasterEggs";
 import { BackupReminder } from "@/components/BackupReminder";
+import { Avatar } from "@/components/Avatar";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const [viewer, settings] = await Promise.all([getViewer(), getSettings(db)]);
@@ -26,7 +27,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   let items: NavItem[];
   let menu: MenuItem[];
-  let name: string | null = null;
+  let me: { id: string; name: string; avatarPath: string | null } | null = null;
   let backupDue = false;
   if (!viewer) {
     // Internal archive: without an account only guests (if enabled) see anything.
@@ -45,7 +46,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     ];
   } else {
     if (viewer.missing.length && path !== "/konto") redirect("/konto?pflicht=1");
-    name = viewer.name.split(" ")[0];
+    me = { id: viewer.id, name: viewer.name, avatarPath: (await db.user.findUnique({ where: { id: viewer.id }, select: { avatarPath: true } }))?.avatarPath ?? null };
+    // Like Instagram: the last tab is always your own profile, shown as your avatar.
+    const profile: NavItem = { href: `/profil/${viewer.id}`, label: "Profil", icon: "User", avatar: me };
     await settleRounds(db);
     const unread = await unreadCount(db, viewer.id);
     if (viewer.isAdmin) {
@@ -56,17 +59,17 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     if (viewer.seat) {
       const open = await db.votingRound.count({ where: { closedAt: null, votes: { none: { seat: viewer.seat } } } });
       items = [
-        { href: "/woerter", label: "Sammlung", icon: "BookOpen" },
+        { href: "/k", label: "Start", icon: "Home", exact: true },
         { href: "/k/abstimmen", label: "Abstimmen", icon: "Layers", badge: open },
         { href: "/k/neu", label: "Hinzufügen", icon: "Plus", primary: true },
-        { href: "/k/spaeter", label: "Später", icon: "Hourglass" },
-        // Profil = personal overview (dashboard, account, admin links).
-        { href: "/k", label: "Profil", icon: "User", exact: true },
+        { href: "/woerter", label: "Sammlung", icon: "BookOpen" },
+        profile,
       ];
     } else if (viewer.isAdmin) {
       items = [
         { href: "/woerter", label: "Sammlung", icon: "BookOpen" },
-        { href: "/admin", label: "Verwaltung", icon: "User" },
+        { href: "/admin", label: "Verwaltung", icon: "Settings" },
+        profile,
       ];
     } else {
       // Member without vote: read only (plus rights the admin granted).
@@ -74,21 +77,21 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         { href: "/", label: "Start", icon: "Home" },
         { href: "/woerter", label: "Sammlung", icon: "BookOpen" },
         { href: "/zufall", label: "Zufall", icon: "Shuffle" },
-        { href: "/konto", label: "Profil", icon: "User" },
+        profile,
       ];
     }
+    // Account settings are not here: they sit behind the gear on your own profile.
     menu = [
       { href: "/nachrichten", label: "Nachrichten", badge: unread },
+      { href: "/mitglieder", label: "Mitglieder" },
       { href: "/spiele", label: "Minispiele" },
       { href: "/wort-des-jahres", label: "Wort des Jahres" },
+      { href: `/wrapped/${berlinYear(new Date())}`, label: "Peake Wrapped" },
+      ...(viewer.seat ? [{ href: "/k/spaeter", label: "Später-Liste" }] : []),
       ...(can(viewer, "edit") || can(viewer, "tags") ? [{ href: "/pflege", label: "Datenbank pflegen" }] : []),
       ...(can(viewer, "tags") ? [{ href: "/k/kategorien", label: "Kategorien & Tags" }] : []),
       ...(can(viewer, "negative") ? [{ href: "/k/negativliste", label: "Negativliste" }] : []),
       { href: "/export", label: "Liste exportieren" },
-      { href: `/wrapped/${berlinYear(new Date())}`, label: "Peake Wrapped" },
-      { href: `/profil/${viewer.id}`, label: "Mein Profil" },
-      { href: "/konto", label: "Konto & Sicherheit" },
-      ...(viewer.isAdmin ? [{ href: "/admin", label: "Verwaltung" }] : []),
     ];
   }
 
@@ -104,9 +107,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <div className="flex items-center gap-0.5">
             <SfwToggle on={await sfwOn()} />
             <ThemeToggle />
-            {name && (
-              <Link href="/konto" className="btn btn-quiet btn-sm hidden lg:inline-flex">
-                {name}
+            {me && (
+              <Link href={`/profil/${me.id}`} aria-label="Mein Profil" className="ml-1 hidden rounded-full ring-offset-2 ring-offset-table hover:ring-2 hover:ring-line md:inline-flex">
+                <Avatar user={me} size={34} />
               </Link>
             )}
             <SideMenu items={menu} />

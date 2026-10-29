@@ -1,12 +1,14 @@
+import Link from "next/link";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
+import { ArrowLeft, ChevronRight, Settings } from "lucide-react";
 import { getViewer } from "@/lib/access";
 import { SecurityPanel, PasswordForm } from "@/components/SecurityPanel";
 import { MotionToggle, SignOutButton } from "@/components/AccountControls";
 import { EmailForm, ProfileForm } from "@/components/ProfileForms";
 import { db } from "@/lib/db";
 
-export const metadata: Metadata = { title: "Konto", robots: { index: false } };
+export const metadata: Metadata = { title: "Einstellungen", robots: { index: false } };
 export const dynamic = "force-dynamic";
 
 export default async function Konto({ searchParams }: { searchParams: Promise<{ pflicht?: string; neu?: string }> }) {
@@ -17,12 +19,23 @@ export default async function Konto({ searchParams }: { searchParams: Promise<{ 
 
   return (
     <div className="mx-auto max-w-3xl px-4 pt-6 md:px-6 md:pt-10">
-      <h1 className="page-title">Konto</h1>
+      <Link href={`/profil/${v.id}`} className="mb-6 inline-flex items-center gap-1 text-sm font-semibold text-ink-2 hover:text-ink">
+        <ArrowLeft size={16} aria-hidden /> Profil
+      </Link>
+      <h1 className="page-title">Einstellungen</h1>
       <p className="mt-2 text-ink-2">
         {v.name} · {v.email}
         {v.seat ? ` · Kurator, Platz ${v.seat}` : ""}
         {v.isAdmin ? " · Administrator" : ""}
       </p>
+      {v.isAdmin && v.missing.length === 0 && (
+        <Link href="/admin" className="mt-6 flex items-center justify-between rounded-2xl border-[1.5px] border-line p-4 font-semibold transition-colors hover:border-ink-3">
+          <span className="inline-flex items-center gap-2">
+            <Settings size={18} aria-hidden /> Verwaltung
+          </span>
+          <ChevronRight size={18} aria-hidden />
+        </Link>
+      )}
 
       {v.missing.length > 0 && (
         <div role="alert" className="mt-8 rounded-2xl border-[1.5px] border-later bg-later/15 p-5">

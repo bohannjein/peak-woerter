@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { ArrowRight, Inbox, Plus, Settings, Sparkles, UserCog, Users } from "lucide-react";
+import { ArrowRight, Inbox, Plus, Sparkles, Users } from "lucide-react";
 import { db } from "@/lib/db";
 import { requireStaffPage } from "@/lib/access";
 import { formatDate, berlinYear } from "@/lib/time";
@@ -140,14 +140,6 @@ export default async function Overview() {
         <Link href={`/wrapped/${berlinYear(new Date())}`} className="chip">
           <Sparkles size={16} aria-hidden /> Peake Wrapped
         </Link>
-        <Link href="/konto" className="chip">
-          <UserCog size={16} aria-hidden /> Konto
-        </Link>
-        {v.isAdmin && (
-          <Link href="/admin" className="chip">
-            <Settings size={16} aria-hidden /> Verwaltung
-          </Link>
-        )}
       </nav>
     </div>
   );
