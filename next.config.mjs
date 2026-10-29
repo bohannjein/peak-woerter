@@ -3,6 +3,8 @@ const config = {
   poweredByHeader: false,
   reactStrictMode: true,
   serverExternalPackages: ["@prisma/client", "pg"],
+  // Import of an admin export (all words as JSON) is larger than the 1 MB default.
+  experimental: { serverActions: { bodySizeLimit: "25mb" } },
   async headers() {
     return [
       {

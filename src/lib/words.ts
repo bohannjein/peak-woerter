@@ -25,7 +25,7 @@ export function duplicateMessageForCurator(d: DuplicateInfo): string | null {
   }[d.status];
 }
 
-async function uniqueSlug(tx: Tx, term: string, ignoreId?: string) {
+export async function uniqueSlug(tx: Tx, term: string, ignoreId?: string) {
   const base = slugify(term);
   for (let i = 1; ; i++) {
     const slug = i === 1 ? base : `${base}-${i}`;

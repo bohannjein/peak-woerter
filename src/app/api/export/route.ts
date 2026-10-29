@@ -3,6 +3,7 @@ import { getGuest, getViewer } from "@/lib/access";
 import { audit } from "@/lib/audit";
 import { FORMATS, exportRows, render, sha256, sign, type Format, type Order } from "@/lib/export";
 import { sfwOn } from "@/lib/sfw";
+import { PARTS, exportData } from "@/lib/transfer";
 
 export const dynamic = "force-dynamic";
 
@@ -11,7 +12,7 @@ const deny = () => Response.json({ error: "Keine Berechtigung." }, { status: 403
 export async function GET(req: Request) {
   const sp = new URL(req.url).searchParams;
   const v = await getViewer();
-  if (sp.get("format") === "backup") return backup(v);
+  if (sp.get("format") === "backup") return backup(v, sp.getAll("teil"));
 
   // The word list: every account and every guest may export it.
   const guest = v ? null : await getGuest();
@@ -36,33 +37,18 @@ export async function GET(req: Request) {
   });
 }
 
-/** Admin backup: everything except credentials. */
-async function backup(v: Awaited<ReturnType<typeof getViewer>>) {
+/** Admin backup: settings and/or all words, re-importable on /admin/export. */
+async function backup(v: Awaited<ReturnType<typeof getViewer>>, teile: string[]) {
   if (!v?.isAdmin || v.missing.length) return deny();
-  await audit(db, v.id, "export", "app", null, { format: "backup" });
-  const [users, seats, categories, words, submissions, elections, games] = await Promise.all([
-    db.user.findMany({ select: { id: true, name: true, email: true, isAdmin: true, disabled: true, permissions: true, bio: true, favoriteWordId: true, createdAt: true } }),
-    db.curatorSeat.findMany(),
-    db.category.findMany(),
-    db.word.findMany({
-      include: {
-        definitions: true,
-        pronunciations: true,
-        examples: true,
-        categories: true,
-        rounds: { include: { votes: true } },
-        comments: true,
-      },
-    }),
-    db.submission.findMany({ omit: { ipHash: true } }),
-    db.election.findMany({ include: { votes: { omit: { guestId: true } } } }),
-    db.gameRound.findMany({ include: { entries: true, votes: true } }),
-  ]);
-  const body = JSON.stringify({ exportedAt: new Date().toISOString(), version: 2, users, seats, categories, words, submissions, elections, games }, null, 2);
+  const parts = PARTS.filter((p) => teile.includes(p));
+  if (!parts.length) return Response.json({ error: "Bitte mindestens einen Teil wählen." }, { status: 400 });
+  await audit(db, v.id, "data.exported", "app", null, { parts });
+  const body = JSON.stringify(await exportData(db, parts), null, 2);
+  const name = parts.length === 2 ? "backup" : parts[0];
   return new Response(body, {
     headers: {
       "content-type": "application/json; charset=utf-8",
-      "content-disposition": `attachment; filename="peake-backup-${new Date().toISOString().slice(0, 10)}.json"`,
+      "content-disposition": `attachment; filename="peake-${name}-${new Date().toISOString().slice(0, 10)}.json"`,
       "cache-control": "no-store",
     },
   });

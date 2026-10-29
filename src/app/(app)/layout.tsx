@@ -17,6 +17,7 @@ import { SfwToggle } from "@/components/SfwToggle";
 import { SideMenu, type MenuItem } from "@/components/SideMenu";
 import { InstallSw } from "@/components/InstallSw";
 import { EasterEggs } from "@/components/EasterEggs";
+import { BackupReminder } from "@/components/BackupReminder";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const [viewer, settings] = await Promise.all([getViewer(), getSettings(db)]);
@@ -26,6 +27,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   let items: NavItem[];
   let menu: MenuItem[];
   let name: string | null = null;
+  let backupDue = false;
   if (!viewer) {
     // Internal archive: without an account only guests (if enabled) see anything.
     const guest = await getGuest();
@@ -46,6 +48,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     name = viewer.name.split(" ")[0];
     await settleRounds(db);
     const unread = await unreadCount(db, viewer.id);
+    if (viewer.isAdmin) {
+      // "export" = admin backups from before data.exported existed.
+      const last = await db.auditLog.findFirst({ where: { action: { in: ["data.exported", "export"] } }, orderBy: { createdAt: "desc" }, select: { createdAt: true } });
+      backupDue = !last || Date.now() - last.createdAt.getTime() > 30 * 86_400_000;
+    }
     if (viewer.seat) {
       const open = await db.votingRound.count({ where: { closedAt: null, votes: { none: { seat: viewer.seat } } } });
       items = [
@@ -112,6 +119,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <TabBar items={items} />
       <InstallSw />
       <EasterEggs />
+      {backupDue && <BackupReminder />}
     </div>
   );
 }

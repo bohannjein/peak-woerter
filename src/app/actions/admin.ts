@@ -13,6 +13,7 @@ import { settleRounds } from "@/lib/voting";
 import { createGuestLink } from "@/lib/guests";
 import { fromBerlinLocal } from "@/lib/time";
 import { PERMISSION_KEYS } from "@/lib/permissions";
+import { PARTS, importData, parseImport } from "@/lib/transfer";
 
 const refresh = () => revalidatePath("/admin", "layout");
 
@@ -236,5 +237,22 @@ export async function setPermissionsAction(userId: string, _: unknown, fd: FormD
     await audit(db, v.id, "user.permissions", "user", userId, { permissions });
     refresh();
     return true;
+  });
+}
+
+// ───────── Import (counterpart of /api/export?format=backup) ─────────
+
+export async function importAction(_: unknown, fd: FormData) {
+  return safeAction(async () => {
+    const v = await requireAdmin();
+    const file = fd.get("datei");
+    if (!(file instanceof File) || !file.size) throw new AppError("Bitte eine Exportdatei wählen.");
+    const parts = PARTS.filter((p) => fd.get(p) === "on");
+    if (!parts.length) throw new AppError("Bitte mindestens einen Teil wählen.");
+    const r = await importData(db, parseImport(await file.text()), parts, v.id);
+    await audit(db, v.id, "data.imported", "app", null, { parts, ...r });
+    await settleRounds(db);
+    revalidatePath("/", "layout");
+    return r;
   });
 }
