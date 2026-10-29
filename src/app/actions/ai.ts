@@ -4,14 +4,14 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { requirePermission } from "@/lib/access";
 import { getSettings } from "@/lib/settings";
-import { getAiProvider } from "@/lib/ai";
+import { getAiKey, getAiProvider } from "@/lib/ai";
 import { AppError, safeAction } from "@/lib/errors";
 import { audit } from "@/lib/audit";
 
 export async function requestAiDraftAction(wordId: string) {
   return safeAction(async () => {
     const v = await requirePermission("edit");
-    const provider = getAiProvider(await getSettings(db));
+    const provider = getAiProvider(await getSettings(db), await getAiKey(db));
     if (!provider) throw new AppError("Keine KI konfiguriert.");
     const word = await db.word.findUnique({ where: { id: wordId } });
     if (!word) throw new AppError("Wort nicht gefunden.", 404);

@@ -5,7 +5,8 @@ export type Settings = {
   setupTokenHash: string | null;
   require2fa: boolean;
   requirePasskey: boolean;
-  aiProvider: "none" | "openai-compatible";
+  /** API kind; the key is stored separately (lib/ai.ts getAiKey). */
+  aiProvider: "none" | "openai-compatible" | "anthropic";
   aiBaseUrl: string;
   aiModel: string;
   /** Seats with a vote. A round is decided once this many votes are in. */

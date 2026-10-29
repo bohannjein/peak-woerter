@@ -5,7 +5,8 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { requireAdmin } from "@/lib/access";
 import { assignSeat, createInvite, createResetLink, resetSecondFactor } from "@/lib/accounts";
-import { setSettings } from "@/lib/settings";
+import { getSettings, setSettings } from "@/lib/settings";
+import { getAiKey, listModels, setAiKey } from "@/lib/ai";
 import { audit } from "@/lib/audit";
 import { AppError, safeAction } from "@/lib/errors";
 import { siteUrl } from "@/lib/url";
@@ -110,19 +111,41 @@ export async function assignSeatAction(userId: string, seat: number) {
 }
 
 const Ai = z.object({
-  aiProvider: z.enum(["none", "openai-compatible"]),
+  aiProvider: z.enum(["none", "openai-compatible", "anthropic"]),
   aiBaseUrl: z.string().trim().max(300).refine((s) => s === "" || /^https?:\/\//.test(s), "Die Adresse muss mit http:// oder https:// beginnen."),
-  aiModel: z.string().trim().max(120),
+  aiModel: z.string().trim().max(200),
+  aiApiKey: z.string().trim().max(500),
 });
+
+/** Empty key field keeps the stored key, but only for the same provider and address. */
+async function aiInput(fd: FormData) {
+  const r = Ai.safeParse({ aiModel: "", aiApiKey: "", ...Object.fromEntries(fd) });
+  if (!r.success) throw new AppError(r.error.issues[0].message);
+  const { aiApiKey, ...rest } = r.data;
+  const s = await getSettings(db);
+  const key = aiApiKey || (rest.aiProvider === s.aiProvider && rest.aiBaseUrl === s.aiBaseUrl ? await getAiKey(db) : "");
+  return { ...rest, key };
+}
+
+export async function listModelsAction(fd: FormData) {
+  return safeAction(async () => {
+    await requireAdmin();
+    const { aiProvider, aiBaseUrl, key } = await aiInput(fd);
+    if (aiProvider === "none") return [];
+    if (aiProvider === "openai-compatible" && !aiBaseUrl) throw new AppError("Bitte eine Adresse eintragen.");
+    return listModels(aiProvider, aiBaseUrl, key || undefined);
+  });
+}
 
 export async function aiSettingsAction(_: unknown, fd: FormData) {
   return safeAction(async () => {
     const v = await requireAdmin();
-    const r = Ai.safeParse(Object.fromEntries(fd));
-    if (!r.success) throw new AppError(r.error.issues[0].message);
-    if (r.data.aiProvider !== "none" && (!r.data.aiBaseUrl || !r.data.aiModel)) throw new AppError("Adresse und Modell sind nötig.");
-    await setSettings(db, r.data);
-    await audit(db, v.id, "settings.ai", "app", null, r.data);
+    const { key, ...s } = await aiInput(fd);
+    if (s.aiProvider === "openai-compatible" && !s.aiBaseUrl) throw new AppError("Bitte eine Adresse eintragen.");
+    if (s.aiProvider !== "none" && !s.aiModel) throw new AppError("Bitte ein Modell wählen.");
+    await setSettings(db, s);
+    await setAiKey(db, s.aiProvider === "none" ? "" : key);
+    await audit(db, v.id, "settings.ai", "app", null, { ...s, apiKey: key ? "gesetzt" : "leer" });
     refresh();
     return true;
   });

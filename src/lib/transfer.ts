@@ -84,7 +84,7 @@ const SettingsIn = z
   .object({
     require2fa: z.boolean(),
     requirePasskey: z.boolean(),
-    aiProvider: z.enum(["none", "openai-compatible"]),
+    aiProvider: z.enum(["none", "openai-compatible", "anthropic"]),
     aiBaseUrl: str(300).refine((s) => s === "" || /^https?:\/\//.test(s)),
     aiModel: str(120),
     voterCount: z.number().int().min(2).max(20),
