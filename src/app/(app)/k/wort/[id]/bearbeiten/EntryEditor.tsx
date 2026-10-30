@@ -21,6 +21,8 @@ type Form = {
   pronunciations: Pron[];
   examples: string[];
   categoryIds: string[];
+  /** AI drafts something was taken from; marked as applied only once the entry is saved. */
+  aiDraftIds?: string[];
 };
 
 // Characters German IPA needs that phone keyboards lack.
@@ -92,15 +94,19 @@ export function EntryEditor({
         meaningChanged,
       });
       if (!r.ok) return setMsg({ t: r.error, ok: false });
+      // Only now the word counts as "bearbeitet mit KI" (shown on the word page).
+      for (const id of f.aiDraftIds ?? []) void setAiDraftStatusAction(id, "APPLIED");
       setMsg({ t: r.data.essential && status === "ACCEPTED" ? "Gespeichert. Neubewertung gestartet." : "Gespeichert.", ok: true });
       setMeaningChanged(false);
-      setSaved(f);
+      setSaved({ ...f, aiDraftIds: [] });
+      setF((cur) => ({ ...cur, aiDraftIds: [] }));
       local.clear();
       router.refresh();
     });
   }
 
-  function applyDraft(s: Suggestion, field: string) {
+  function applyDraft(s: Suggestion, field: string, draftId: string) {
+    setF((cur) => ({ ...cur, aiDraftIds: [...new Set([...(cur.aiDraftIds ?? []), draftId])] }));
     if (field === "shortDefinition" && s.shortDefinition) {
       const defs = [...f.definitions];
       if (!defs[0]?.text) defs[0] = { text: s.shortDefinition, detail: s.meaning ?? "" };
@@ -109,7 +115,7 @@ export function EntryEditor({
     }
     if (field === "partOfSpeech" && s.partOfSpeech) set("partOfSpeech", s.partOfSpeech);
     // AI IPA is never marked as confirmed.
-    if (field === "ipa" && s.ipa) set("pronunciations", [...f.pronunciations, { ipa: s.ipa, label: "KI-Vorschlag", verified: false }]);
+    if (field === "ipa" && s.ipa) set("pronunciations", [...f.pronunciations, { ipa: s.ipa, label: "", verified: false }]);
     if (field === "example" && s.example) set("examples", [...f.examples.filter(Boolean), s.example]);
     if (field === "origin" && s.origin) set("origin", f.origin ? `${f.origin}\n${s.origin}` : s.origin);
     if (field === "variants") set("variants", [...new Set([...f.variants, ...s.variants])]);
@@ -156,8 +162,7 @@ export function EntryEditor({
               s={draft.content}
               categories={categories}
               onApply={(field) => {
-                applyDraft(draft.content, field);
-                void setAiDraftStatusAction(draft.id, "APPLIED");
+                applyDraft(draft.content, field, draft.id);
               }}
               onDiscard={() => {
                 void setAiDraftStatusAction(draft.id, "DISCARDED");

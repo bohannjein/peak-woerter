@@ -48,6 +48,8 @@ export default async function WordPage({ params }: P) {
         db.votingRound.findFirst({ where: { wordId: w.id, closedAt: null }, select: { id: true } }),
       ])
     : [[], null, null];
+  // A saved entry took something from an AI draft (EntryEditor marks drafts as applied on save).
+  const aiEdited = (await db.aiDraft.count({ where: { wordId: w.id, status: "APPLIED" } })) > 0;
   const pron = w.pronunciations.filter((p) => p.verified);
   const catIds = w.categories.map((c) => c.category.slug);
   const related = catIds.length
@@ -165,6 +167,7 @@ export default async function WordPage({ params }: P) {
                   <time dateTime={w.acceptedAt.toISOString()}>{formatDate(w.acceptedAt)}</time>
                 </>
               )}
+              {aiEdited && " · bearbeitet mit KI"}
             </p>
           </div>
 
