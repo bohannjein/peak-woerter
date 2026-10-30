@@ -70,7 +70,7 @@ export function AddWordForm() {
           autoComplete="off"
           autoCapitalize="sentences"
           enterKeyHint="send"
-          placeholder="z. B. Kladderadatsch"
+          placeholder="Wort eingeben"
           aria-invalid={dup ? true : undefined}
           aria-describedby="dup"
           value={term}
