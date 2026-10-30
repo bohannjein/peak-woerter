@@ -13,6 +13,7 @@ import { POS_LABEL, bandClass, cardNo } from "@/lib/categories";
 import { formatDate } from "@/lib/time";
 import { WordCard, Ipa } from "@/components/WordCard";
 import { ShareButton } from "@/components/ShareButton";
+import { cardImagePath, shareUrl } from "@/lib/share";
 import { AudioButton } from "@/components/AudioButton";
 
 type P = { params: Promise<{ slug: string }> };
@@ -168,7 +169,13 @@ export default async function WordPage({ params }: P) {
           </div>
 
           <div className="mt-6 flex flex-wrap gap-2">
-            <ShareButton small title={w.term} text={w.definitions[0]?.text ? `${w.term}: ${w.definitions[0].text}` : w.term} />
+            <ShareButton
+              small
+              title={w.term}
+              text={w.definitions[0]?.text ? `${w.term} – ${w.definitions[0].text}` : w.term}
+              url={shareUrl(w.slug)}
+              image={cardImagePath(w.slug)}
+            />
             <Link href="/zufall" className="btn btn-quiet btn-sm">
               <Shuffle size={18} aria-hidden /> Zufälliges Wort
             </Link>
