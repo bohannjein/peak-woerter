@@ -8,6 +8,7 @@ import { MiniCard } from "@/components/WordCard";
 import { EntryRow } from "@/components/EntryRow";
 import { sfwOn } from "@/lib/sfw";
 import { normalizeTerm } from "@/lib/text";
+import { LiveSearch } from "./LiveSearch";
 
 export const metadata: Metadata = { title: "Sammlung" };
 export const dynamic = "force-dynamic";
@@ -60,7 +61,7 @@ export default async function Sammlung({ searchParams }: { searchParams: SP }) {
         <label htmlFor="suche" className="sr-only">
           Suchen
         </label>
-        <input id="suche" name="q" type="search" defaultValue={q} placeholder="Suchen" className="field" autoComplete="off" enterKeyHint="search" />
+        <LiveSearch initial={q} />
         <button className="btn btn-primary shrink-0 px-4" aria-label="Suchen">
           <Search size={20} strokeWidth={2.4} aria-hidden />
         </button>
