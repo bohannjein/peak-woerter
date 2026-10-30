@@ -25,8 +25,11 @@ export function BackupReminder() {
   };
   if (!show) return null;
   return (
-    <div
-      role="status"
+    <>
+    {/* Lets the end of the page scroll above the fixed reminder, so no button stays covered. */}
+    <div aria-hidden className="h-24" />
+    <aside
+      aria-label="Backup-Erinnerung"
       className="toast-in fixed inset-x-4 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] z-50 mx-auto flex max-w-md items-center justify-between gap-3 rounded-2xl bg-ink px-4 py-3 text-table shadow-lg md:bottom-8"
     >
       <span className="text-[0.95rem] font-semibold">Hast du diesen Monat schon ein Backup gemacht?</span>
@@ -38,6 +41,7 @@ export function BackupReminder() {
           <X size={18} aria-hidden />
         </button>
       </span>
-    </div>
+    </aside>
+    </>
   );
 }

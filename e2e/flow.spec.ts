@@ -72,12 +72,12 @@ test("Wort in Sekunden einreichen, Duplikat wird erkannt", async () => {
   const p = await anna.newPage();
   await p.goto("/k/neu");
   await shot(p, "02-neu");
-  await p.getByPlaceholder("z. B. Kladderadatsch").fill("Mumpitz");
+  await p.getByPlaceholder("Wort eingeben").fill("Mumpitz");
   await p.getByRole("button", { name: "Hinzufügen", exact: true }).click();
   await expect(p.getByRole("status")).toContainText("„Mumpitz“ hinzugefügt");
-  await p.getByPlaceholder("z. B. Kladderadatsch").fill("  mumpitz ");
+  await p.getByPlaceholder("Wort eingeben").fill("  mumpitz ");
   await expect(p.locator("#dup")).toContainText("steht schon zur Abstimmung");
-  await p.getByPlaceholder("z. B. Kladderadatsch").fill("Firlefanz");
+  await p.getByPlaceholder("Wort eingeben").fill("Firlefanz");
   await p.getByRole("button", { name: "Hinzufügen", exact: true }).click();
   await expect(p.getByRole("status")).toContainText("Firlefanz");
 });
