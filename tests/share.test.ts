@@ -32,5 +32,15 @@ describe("Teilen-Link", () => {
     expect(await size(portrait)).toEqual([1080, 1350]);
     expect(await size(await call(`?k=${shareKey(w.slug)}&f=og`))).toEqual([1200, 630]);
     expect((await call("?k=falsch")).status).toBe(404);
+  }, 90_000); // first render loads the image engine (slow on a cold start)
+});
+
+describe("Teilen-Link-Version", () => {
+  it("ändert sich mit dem Karteninhalt, nicht bei gleichem Inhalt", async () => {
+    const { shareUrl } = await import("@/lib/share");
+    const a = shareUrl("mumpitz", { term: "Mumpitz", definition: "Unsinn." });
+    expect(a).toMatch(/\/teilen\/mumpitz\?k=[0-9a-f]{16}&v=[0-9a-f]{8}$/);
+    expect(shareUrl("mumpitz", { term: "Mumpitz", definition: "Unsinn." })).toBe(a);
+    expect(shareUrl("mumpitz", { term: "Mumpitz", definition: "Quatsch." })).not.toBe(a);
   });
 });

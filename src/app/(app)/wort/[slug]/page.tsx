@@ -173,7 +173,7 @@ export default async function WordPage({ params }: P) {
               small
               title={w.term}
               text={w.definitions[0]?.text ? `${w.term} – ${w.definitions[0].text}` : w.term}
-              url={shareUrl(w.slug)}
+              url={shareUrl(w.slug, toCard(w))}
               card={toCard(w)}
               fallbackImage={cardImagePath(w.slug)}
             />
