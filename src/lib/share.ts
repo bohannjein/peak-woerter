@@ -1,7 +1,18 @@
 // Share links for single words. Anyone with the link may see the word's card,
 // so the link carries an HMAC of the slug: guessing /teilen/<slug> is not enough.
 import { createHmac, timingSafeEqual } from "node:crypto";
+import { stat } from "node:fs/promises";
+import { join } from "node:path";
 import { siteUrl } from "./url";
+
+/** Browser snapshots of the real card, uploaded when a member shares (api/karte). */
+export const CARD_DIR = join(process.env.DATA_DIR ?? "./data", "cards");
+export const cardSnapshotPath = (wordId: string) => join(CARD_DIR, `${wordId}.png`);
+
+/** Changes whenever a new snapshot is uploaded, so messengers fetch the new preview. */
+export async function cardVersion(wordId: string) {
+  return (await stat(cardSnapshotPath(wordId)).catch(() => null))?.mtimeMs.toFixed(0) ?? "0";
+}
 
 export function shareKey(slug: string, secret = process.env.BETTER_AUTH_SECRET ?? "") {
   return createHmac("sha256", secret).update(`share:${slug}`).digest("hex").slice(0, 16);

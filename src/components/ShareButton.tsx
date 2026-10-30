@@ -15,6 +15,7 @@ export function ShareButton({ title, text, url, card, fallbackImage, small }: { 
   const [state, setState] = useState<"idle" | "busy" | "copied">("idle");
   const snap = useRef<HTMLDivElement>(null);
   const ready = useRef<Promise<File> | null>(null);
+  const snapshotOk = useRef(false); // false = server fallback image, never uploaded back
 
   // Render the image ahead of time: iOS only allows the share sheet shortly after the tap.
   const cardFile = useCallback(() => {
@@ -25,7 +26,10 @@ export function ShareButton({ title, text, url, card, fallbackImage, small }: { 
         // First pass loads fonts into the snapshot (needed on Safari), second one is complete.
         await toBlob(snap.current!, { pixelRatio: 3 });
         blob = await toBlob(snap.current!, { pixelRatio: 3 });
-      } catch {}
+      } catch (e) {
+        console.warn("Karten-Schnappschuss fehlgeschlagen, nehme Server-Bild", e);
+      }
+      snapshotOk.current = !!blob;
       blob ??= await (await fetch(fallbackImage)).blob();
       return new File([blob], `${title}.png`, { type: "image/png" });
     })();
@@ -40,9 +44,13 @@ export function ShareButton({ title, text, url, card, fallbackImage, small }: { 
   async function share() {
     setState("busy");
     try {
+      const file = await cardFile().catch(() => null);
+      // The link preview in messengers shows this image too. Needed where files
+      // cannot be shared at all (e.g. Firefox on Android shares only the link).
+      // Not awaited: iOS only opens the share sheet right after the tap.
+      if (file && snapshotOk.current) void fetch(fallbackImage.split("?")[0], { method: "PUT", body: file }).catch(() => {});
       if (navigator.share) {
         // Some apps drop `url` when files are attached, so the link also goes into the text.
-        const file = await cardFile().catch(() => null);
         if (file && navigator.canShare?.({ files: [file] })) await navigator.share({ files: [file], title, text: `${text}\n${url}`, url });
         else await navigator.share({ title, text, url });
         return setState("idle");

@@ -5,7 +5,7 @@ import { db } from "@/lib/db";
 import { getGuest, getViewer } from "@/lib/access";
 import { getPublicEntry } from "@/lib/queries";
 import { toCard } from "@/lib/cards";
-import { cardImageUrl, checkShareKey } from "@/lib/share";
+import { cardImageUrl, cardVersion, checkShareKey } from "@/lib/share";
 import { WordCard } from "@/components/WordCard";
 
 type P = { params: Promise<{ slug: string }>; searchParams: Promise<{ k?: string }> };
@@ -25,7 +25,8 @@ export async function generateMetadata(p: P): Promise<Metadata> {
   return {
     title: w.term,
     description,
-    openGraph: { title: `${w.term} · Peake Wörter`, description, type: "article", images: [{ url: cardImageUrl(w.slug, true), width: 1200, height: 630 }] },
+    // Real card snapshot once someone shared it, else the server-rendered landscape card.
+    openGraph: { title: `${w.term} · Peake Wörter`, description, type: "article", images: [{ url: `${cardImageUrl(w.slug, true)}&v=${await cardVersion(w.id)}` }] },
     twitter: { card: "summary_large_image" },
   };
 }

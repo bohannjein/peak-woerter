@@ -1,7 +1,10 @@
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { ImageResponse } from "next/og";
 import { db } from "@/lib/db";
+import { getViewer } from "@/lib/access";
 import { getPublicEntry } from "@/lib/queries";
-import { checkShareKey } from "@/lib/share";
+import { imageType } from "@/lib/profile";
+import { CARD_DIR, cardSnapshotPath, checkShareKey } from "@/lib/share";
 import { POS_LABEL, cardNo } from "@/lib/categories";
 
 // Same values as the .band-* classes in globals.css (Satori cannot read CSS variables).
@@ -16,13 +19,22 @@ const BAND: Record<string, [string, string]> = {
   ink: ["#2a2e3c", "#f4f3ec"],
 };
 
-/** The word card as PNG for sharing. Portrait by default, ?f=og for link previews. */
+const MAX = 4 * 1024 * 1024;
+
+/**
+ * The word card as PNG for sharing and link previews. Serves the browser
+ * snapshot of the real card once a member has shared the word (see PUT);
+ * until then a server-rendered approximation: portrait, or ?f=og landscape.
+ */
 export async function GET(req: Request, { params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const sp = new URL(req.url).searchParams;
   if (!checkShareKey(slug, sp.get("k"))) return new Response("Nicht gefunden.", { status: 404 });
   const w = await getPublicEntry(db, slug);
   if (!w) return new Response("Nicht gefunden.", { status: 404 });
+
+  const snapshot = await readFile(cardSnapshotPath(w.id)).catch(() => null);
+  if (snapshot) return new Response(new Uint8Array(snapshot), { headers: { "content-type": "image/png", "cache-control": "public, max-age=300", "x-content-type-options": "nosniff" } });
 
   const og = sp.get("f") === "og";
   const [width, height] = og ? [1200, 630] : [1080, 1350];
@@ -57,4 +69,17 @@ export async function GET(req: Request, { params }: { params: Promise<{ slug: st
     ),
     { width, height, headers: { "cache-control": "public, max-age=3600" } },
   );
+}
+
+/** Members upload the snapshot their browser took of the real card when sharing. */
+export async function PUT(req: Request, { params }: { params: Promise<{ slug: string }> }) {
+  const v = await getViewer();
+  if (!v || v.missing.length) return Response.json({ error: "Keine Berechtigung." }, { status: 403 });
+  const w = await getPublicEntry(db, (await params).slug);
+  if (!w) return Response.json({ error: "Nicht gefunden." }, { status: 404 });
+  const buf = Buffer.from(await req.arrayBuffer());
+  if (!buf.length || buf.length > MAX || imageType(buf) !== "png") return Response.json({ error: "Nur PNG bis 4 MB." }, { status: 415 });
+  await mkdir(CARD_DIR, { recursive: true });
+  await writeFile(cardSnapshotPath(w.id), buf);
+  return Response.json({ ok: true });
 }
