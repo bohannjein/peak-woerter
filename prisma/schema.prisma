@@ -47,6 +47,7 @@ model User {
   gameEntries   GameEntry[]
   gameVotes     GameVote[]
   guestAccesses GuestAccess[]
+  drafts        Draft[]
 
   @@map("user")
 }
@@ -473,6 +474,19 @@ model Notification {
 
   @@index([userId, readAt])
   @@map("notification")
+}
+
+// Unsaved form input (new word, entry editor), synced across the user's devices.
+// key: "neu" | "wort:<wordId>". Deleted when the form is saved or discarded.
+model Draft {
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  key       String
+  value     Json
+  updatedAt DateTime @updatedAt
+
+  @@id([userId, key])
+  @@map("draft")
 }
 
 // ───────────────────────── Guests ─────────────────────────

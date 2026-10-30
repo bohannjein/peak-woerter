@@ -15,7 +15,7 @@ export function AddWordForm() {
   const [term, setTerm] = useState("");
   const [note, setNote] = useState("");
   const dirty = !!(term.trim() || note.trim());
-  const draft = useDraft("peake-draft:neu", { term, note }, dirty);
+  const draft = useDraft("neu", { term, note }, dirty);
   const formRef = useRef<HTMLFormElement>(null);
   const termRef = useRef<HTMLInputElement>(null);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);

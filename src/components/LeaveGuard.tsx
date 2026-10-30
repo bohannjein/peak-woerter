@@ -3,10 +3,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { formatDate } from "@/lib/time";
+import { deleteDraftAction, getDraftAction, saveDraftAction } from "@/app/actions/drafts";
 
-// Unsaved form input survives anything: it is written to localStorage while
-// typing and when the tab is hidden, so a crash or closed tab loses nothing.
-// Drafts live in this browser only.
+// Unsaved form input survives anything and follows you to other devices:
+// - localStorage while typing and when the tab is hidden (instant, works offline
+//   and after a crash),
+// - the server every few seconds (lib: app/actions/drafts.ts), so another device
+//   offers the same draft. On load the newer of both wins.
 
 type Stored<T> = { value: T; at: string };
 
@@ -19,28 +22,53 @@ const read = <T,>(key: string): Stored<T> | null => {
   }
 };
 
+/** `key`: "neu" or "wort:<id>". */
 export function useDraft<T>(key: string, value: T, dirty: boolean) {
+  const local = `peake-draft:${key}`;
   const [found, setFound] = useState<Stored<T> | null>(null);
   const latest = useRef({ value, dirty });
   latest.current = { value, dirty };
 
-  const write = useCallback(() => {
+  const writeLocal = useCallback(() => {
     try {
-      if (latest.current.dirty) localStorage.setItem(key, JSON.stringify({ value: latest.current.value, at: new Date().toISOString() }));
+      if (latest.current.dirty) localStorage.setItem(local, JSON.stringify({ value: latest.current.value, at: new Date().toISOString() }));
     } catch {}
+  }, [local]);
+  const writeServer = useCallback(() => {
+    if (latest.current.dirty) void saveDraftAction(key, latest.current.value);
   }, [key]);
+  const write = useCallback(() => {
+    writeLocal();
+    writeServer();
+  }, [writeLocal, writeServer]);
   const clear = useCallback(() => {
     try {
-      localStorage.removeItem(key);
+      localStorage.removeItem(local);
     } catch {}
+    void deleteDraftAction(key);
     setFound(null);
-  }, [key]);
+  }, [key, local]);
 
-  useEffect(() => setFound(read<T>(key)), [key]);
   useEffect(() => {
-    const t = setTimeout(write, 500);
-    return () => clearTimeout(t);
-  }, [value, dirty, write]);
+    let live = true;
+    const mine = read<T>(local);
+    setFound(mine);
+    getDraftAction(key).then((r) => {
+      const remote = r.ok ? (r.data as Stored<T> | null) : null;
+      if (live && remote && (!mine || remote.at > mine.at)) setFound(remote);
+    });
+    return () => {
+      live = false;
+    };
+  }, [key, local]);
+  useEffect(() => {
+    const a = setTimeout(writeLocal, 500);
+    const b = setTimeout(writeServer, 2000);
+    return () => {
+      clearTimeout(a);
+      clearTimeout(b);
+    };
+  }, [value, dirty, writeLocal, writeServer]);
   useEffect(() => {
     const now = () => document.visibilityState === "hidden" && write();
     document.addEventListener("visibilitychange", now);
@@ -111,9 +139,12 @@ export function LeaveGuard({ dirty, onKeep, onDiscard }: { dirty: boolean; onKee
   };
 
   return (
-    <dialog ref={dialog} className="m-auto max-w-sm rounded-[20px] bg-table p-6 text-ink shadow-xl backdrop:bg-black/40">
+    // A tap on the dimmed backdrop targets the dialog itself: same as "Weiter bearbeiten".
+    // Padding sits on the inner div, so only taps outside the box reach the dialog element.
+    <dialog ref={dialog} onClick={(e) => e.target === e.currentTarget && dialog.current?.close()} className="m-auto max-w-sm rounded-[20px] bg-table p-0 text-ink shadow-xl backdrop:bg-black/40">
+      <div className="p-6">
       <p className="text-lg font-bold">Ungespeicherte Änderungen</p>
-      <p className="mt-2 text-ink-2">Du hast noch nicht gespeichert. Den Entwurf auf diesem Gerät behalten oder verwerfen?</p>
+      <p className="mt-2 text-ink-2">Du hast noch nicht gespeichert. Den Entwurf behalten oder verwerfen?</p>
       <div className="mt-5 flex flex-col gap-2">
         <button type="button" onClick={() => leave(true)} className="btn btn-primary">
           Entwurf behalten und verlassen
@@ -124,6 +155,7 @@ export function LeaveGuard({ dirty, onKeep, onDiscard }: { dirty: boolean; onKee
         <button type="button" onClick={() => dialog.current?.close()} className="btn btn-quiet">
           Weiter bearbeiten
         </button>
+      </div>
       </div>
     </dialog>
   );

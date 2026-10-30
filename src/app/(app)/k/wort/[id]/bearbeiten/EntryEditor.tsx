@@ -49,7 +49,7 @@ export function EntryEditor({
   }));
   const [f, setF] = useState<Form>(saved);
   const dirty = JSON.stringify(f) !== JSON.stringify(saved);
-  const local = useDraft(`peake-draft:wort:${wordId}`, f, dirty);
+  const local = useDraft(`wort:${wordId}`, f, dirty);
   const [meaningChanged, setMeaningChanged] = useState(false);
   const [msg, setMsg] = useState<{ t: string; ok: boolean } | null>(null);
   const [saving, startSave] = useTransition();
