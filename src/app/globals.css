@@ -346,11 +346,9 @@ a {
 }
 
 /* Side menu (native popover), slides in from the right. */
+/* No ::backdrop: SideMenu renders its own click-catching backdrop. */
 .side-menu {
   inset: 0 0 0 auto;
-}
-.side-menu::backdrop {
-  background: rgb(0 0 0 / 0.4);
 }
 @media (prefers-reduced-motion: no-preference) {
   .side-menu:popover-open {
