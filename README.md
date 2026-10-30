@@ -32,7 +32,10 @@ Unser kleines, internes Archiv für bemerkenswerte Wörter. Kuratoren schlagen W
 | Wort des Jahres | Drei Runden mit frei einstellbaren Terminen: Nominieren → Up-/Downvotes auf alle Nominierten → Finale der Besten mit je einem Up- und Downvote. Gewinner wird gespeichert und auf der Startseite gezeigt. Zusätzlich Community-Wort des Jahres, bei dem auch Gäste abstimmen. |
 | Gastmodus | Aus, solange der Admin ihn nicht einschaltet. Dann: einmalige oder zeitlich begrenzte Gastlinks, oder für alle offen (bis Datum oder dauerhaft). Gäste sehen nur die Sammlung, können exportieren und beim Community-Wort abstimmen. |
 | Minispiel | Täglich ein Zufallswort, alle schreiben einen glaubwürdigen Satz (optional per Sprachaufnahme, Admin-Schalter). Am Folgetag wird anonym abgestimmt, Siege stehen im Profil. Erweiterbar (lib/games.ts). |
-| Profil | Name, E-Mail (mit Passwort), Profilbild, Bio, Lieblingswort, Minispiel-Siege. Nachrichten-Postfach. |
+| Profil | Wie bei Instagram: Profilbild als letzter Tab (Handy) bzw. oben rechts (Desktop), Kopf mit Kennzahlen, Raster der eigenen Wortkarten, Bio, Lieblingswort. Statistik für alle Mitglieder (eingereicht, aufgenommen, Kategorien, Kommentare, Minispiel, Wort des Jahres) und ein Bereich „Nur für dich“ (Stimmen, Trefferquote, Aktivität, Serie, Monatsdiagramm, letzte Anmeldung). Einstellungen nur über das Zahnrad auf dem eigenen Profil. Nachrichten-Postfach. |
+| Mitglieder | Liste aller aktiven Mitglieder mit Suche nach Name und Bio, Klick öffnet das Profil. E-Mail-Adressen werden nie gezeigt. |
+| Teilen | Auf dem Handy öffnet „Teilen“ das System-Menü mit der Wortkarte als Bild (Schnappschuss der echten Karte) und einem öffentlichen Link `/teilen/<wort>?k=…`. Der Link zeigt die Karte auch ohne Konto; Angemeldete landen direkt auf der Wortseite. Der Schlüssel `k` verhindert, dass Wörter durch Raten der Adresse öffentlich werden. Link-Vorschauen in Messengern zeigen ein Kartenbild. |
+| Entwürfe | Neues Wort und Eintrag bearbeiten speichern ungesicherte Eingaben laufend (im Browser und alle paar Sekunden auf dem Server) und bieten sie beim nächsten Öffnen an, auch auf einem anderen Gerät. Beim Verlassen per Link fragt ein Dialog: Entwurf behalten, verwerfen oder weiter bearbeiten. |
 | Rechte | Admin vergibt einzelnen Mitgliedern: Einträge bearbeiten, Tags/Kategorien, Kontext/Kommentare, Negativliste. Stimmrecht kommt nur mit Kuratorenplatz und kann entzogen werden. |
 | Datenbank pflegen | Lücken-Filter (ohne Beschreibung, Kategorie, Wortart, Lautschrift, Beispiel, Herkunft, unbestätigte IPA, Auto-Tags prüfen), Massen-Tagging, alle Wörter neu taggen. |
 | Export | Für alle (auch Gäste): CSV (UTF-8), XLSX, JSON, SQL, TXT, Markdown, PDF (Druckansicht). Sortiert alphabetisch, nach Datum oder Kategorien. Mit Zeitstempel und HMAC-Signatur; jede Datei lässt sich unter *Export prüfen* auf Echtheit prüfen. |
@@ -42,9 +45,9 @@ Unser kleines, internes Archiv für bemerkenswerte Wörter. Kuratoren schlagen W
 | Einreichen | Kuratoren: Wort tippen, absenden, fertig (Duplikat-Hinweis live). |
 | Duplikate | Normalisierung (Groß/klein, Leerzeichen, Anführungszeichen, unsichtbare Zeichen), Hinweis auf Archiv, laufende Abstimmung, Später-Liste oder Negativliste. |
 | Peake Wrapped | Jahresrückblick als Story, nur aus gespeicherten Runden berechnet. Mitglieder ohne Stimmrecht sehen nur unkritische Zahlen (keine Stimmen, keine Namen). |
-| KI (optional) | OpenAI-kompatible Schnittstelle (auch lokal, z. B. Ollama). Liefert nur Entwürfe mit Unsicherheitsangabe. KI-IPA ist nie „bestätigt“, neue KI-Kategorien gelten erst, wenn Kuratoren sie anlegen. |
+| KI (optional) | Unter *Verwaltung → KI* Anbieter wählen (OpenAI, Anthropic, Google Gemini, Mistral, OpenRouter, Groq, DeepSeek, xAI, Together, Ollama, LM Studio oder eigener OpenAI-kompatibler Server), API-Schlüssel eintragen, Modelle laden, Modell wählen. Die KI bekommt Wort, Einreichungsnotiz, bisherigen Eintrag, Kategorien mit Stichwörtern und drei aufgenommene Einträge als Stilvorlage, und liefert nur Entwürfe mit Unsicherheitsangabe, die Kuratoren Feld für Feld übernehmen. Antwortformat per JSON-Schema erzwungen, abweichende Antworten werden angeglichen. KI-IPA ist nie „bestätigt“. Der Schlüssel liegt getrennt von den übrigen Einstellungen und erscheint weder im Browser noch im Export. |
 | Sicherheit | Passwort (scrypt), Passkeys (WebAuthn), TOTP mit Recovery-Codes, Pflicht-Richtlinien, Einladungen statt Registrierung, Setup-Token, CSP mit Nonce, Rate Limits, Audit-Log |
-| Verwaltung | Benutzer, Kuratorenplätze, Rechte, Abstimmungsregeln, Gäste, Wort des Jahres, Einladungen, Passwort-Links, 2FA-Reset, Sperren, Richtlinien, Kategorien, Negativliste, KI, Export (JSON/CSV), Systeminfo, Protokoll |
+| Verwaltung | Benutzer, Kuratorenplätze, Rechte, Abstimmungsregeln, Gäste, Wort des Jahres, Einladungen, Passwort-Links, 2FA-Reset, Sperren, Richtlinien, Kategorien, Negativliste, KI, Export & Import (Einstellungen und/oder alle Wörter als JSON), monatliche Backup-Erinnerung, Systeminfo, Protokoll |
 | PWA | Installierbar, Safe Areas, Offline-Seite, Shortcuts „Abstimmen“ und „Wort hinzufügen“ |
 
 ---
@@ -90,6 +93,7 @@ Portainer klont das Repo und baut das Image selbst. Kein Shell-Zugriff nötig.
    | `POSTGRES_PASSWORD` | nur Buchstaben und Ziffern, z. B. `openssl rand -hex 32` |
    | `SETUP_TOKEN` | optional, sonst steht es im Container-Log von `app` |
    | `APP_PORT` | optional, Standard `3000` |
+   | `AI_API_KEY` | optional, Ersatz, wenn unter *Verwaltung → KI* kein Schlüssel eingetragen ist |
    | `APP_BIND` | optional: `0.0.0.0` (alle Schnittstellen, Standard; nötig für Proxy-Container oder Proxy auf anderem Rechner) oder `127.0.0.1` (nur Proxy direkt auf dem Host) |
 
 5. *Deploy the stack*. Der erste Build dauert einige Minuten.
@@ -146,7 +150,9 @@ docker run --rm -v peake_appdata:/data -v "$PWD/backups":/in alpine \
 docker compose start app
 ```
 
-Zusätzlich gibt es unter *Verwaltung → Export & Backup* einen JSON-Export (alles außer Zugangsdaten) und einen CSV-Export der Sammlung.
+**Export und Import in der App**
+
+Unter *Verwaltung → Export & Backup* lassen sich **Admin-Einstellungen** (Abstimmung, Gäste, KI ohne Schlüssel, Sicherheitsregeln, Kategorien) und **alle Wörter** (jeder Status, mit Bedeutungen, Lautschrift, Beispielen, Kategorien) einzeln oder zusammen als JSON exportieren und wieder importieren. Der Import fügt nur fehlende Wörter hinzu und überschreibt Einstellungen; Konten, Stimmen, Kommentare und Audio sind nicht enthalten, dafür ist das Server-Backup oben da. Ist der letzte Export älter als 30 Tage, erinnert ein Hinweis jeden Admin daran.
 
 ---
 
@@ -197,7 +203,7 @@ npm run dev
 npm test
 ```
 
-Abgedeckt sind unter anderem: alle Kombinationen der Entscheidungstabelle, ausstehende Runden, kein doppeltes Abstimmen (auch bei gleichzeitigem Doppelklick), gleichzeitige Stimmen beider Kuratoren, keine Stimmen von Gästen, Admins ohne Sitz und gesperrten Konten, Duplikaterkennung, Rückgängig, Neubewertung (alle Ausgänge, Ausblenden beim ersten Nein), Wiederherstellung von der Negativliste, Bearbeitung von Definitionen, mehrere Aussprachevarianten, wesentliche Änderungen, öffentliche Sichtbarkeit, Wort des Tages (stabil, Ersatz, Tagesgrenze Europe/Berlin), Jahresstatistik, Ersteinrichtung, Einladungen, Kuratorensitze, Passwort- und 2FA-Reset, Authentifizierungsrichtlinien, Mehrheits-/Absolutprinzip mit 3 Votern, Anfechtung (nur 100 % Nein), Fristen, Benachrichtigungen, Rechte, Gastlinks (einmalig, mehrfach, Widerruf, offen bis), Wort des Jahres (Limits, Finalisten, Gewinner, Gaststimmen), Minispiel (ein Satz pro Tag, Abstimmung am Folgetag, Siege), Auto-Tagging und SFW-Filter, Export (nur öffentliche Felder, Signatur, CSV-Injection, gültiges XLSX), E-Mail-Wechsel nur mit Passwort, Lieblingswort, Bildtyp-Erkennung.
+Abgedeckt sind unter anderem: alle Kombinationen der Entscheidungstabelle, ausstehende Runden, kein doppeltes Abstimmen (auch bei gleichzeitigem Doppelklick), gleichzeitige Stimmen beider Kuratoren, keine Stimmen von Gästen, Admins ohne Sitz und gesperrten Konten, Duplikaterkennung, Rückgängig, Neubewertung (alle Ausgänge, Ausblenden beim ersten Nein), Wiederherstellung von der Negativliste, Bearbeitung von Definitionen, mehrere Aussprachevarianten, wesentliche Änderungen, öffentliche Sichtbarkeit, Wort des Tages (stabil, Ersatz, Tagesgrenze Europe/Berlin), Jahresstatistik, Ersteinrichtung, Einladungen, Kuratorensitze, Passwort- und 2FA-Reset, Authentifizierungsrichtlinien, Mehrheits-/Absolutprinzip mit 3 Votern, Anfechtung (nur 100 % Nein), Fristen, Benachrichtigungen, Rechte, Gastlinks (einmalig, mehrfach, Widerruf, offen bis), Wort des Jahres (Limits, Finalisten, Gewinner, Gaststimmen), Minispiel (ein Satz pro Tag, Abstimmung am Folgetag, Siege), Auto-Tagging und SFW-Filter, Export (nur öffentliche Felder, Signatur, CSV-Injection, gültiges XLSX), Admin-Export/-Import (Rundreise, Duplikate übersprungen), E-Mail-Wechsel nur mit Passwort, Lieblingswort, Bildtyp-Erkennung, Profilstatistik (Trefferquote, Serie, privat nur für sich selbst), KI (Modellliste, Schema mit Rückfall, tolerantes Parsen), Teilen-Schlüssel und Kartenbild.
 
 **End-to-End-Test auf Smartphone-Viewport** (Playwright; erwartet eine laufende Instanz mit **leerer** Datenbank und `SETUP_TOKEN=test-setup-token`):
 
@@ -206,7 +212,7 @@ npx playwright install chromium    # oder PW_CHANNEL=msedge / chrome für einen 
 npm run test:e2e
 ```
 
-Der Ablauf: Einrichtung mit falschem und richtigem Token, Einladung annehmen (einmalig), Wort einreichen, Duplikat-Hinweis, Wischen nach rechts, Nein per Button, Rückgängig, Später per Tastatur, öffentliche Sichtbarkeit, ohne Anmeldung nichts sichtbar, Mitglied ohne Stimmrecht, Suche und Kategorienfilter, Eintrag mit IPA bearbeiten.
+Der Ablauf: Einrichtung mit falschem und richtigem Token, Einladung annehmen (einmalig), Wort einreichen, Duplikat-Hinweis, Wischen nach rechts, Nein per Button, Rückgängig, Später per Tastatur, öffentliche Sichtbarkeit, ohne Anmeldung nichts sichtbar, Mitglied ohne Stimmrecht, Suche und Kategorienfilter, Eintrag mit IPA bearbeiten. Danach (`e2e/ui.spec.ts`): Tippen neben das geöffnete Menü schließt es, ohne darunter etwas auszulösen; ein Entwurf wandert auf ein zweites Gerät und verschwindet nach dem Absenden überall.
 
 ---
 
@@ -216,9 +222,9 @@ Der Ablauf: Einrichtung mit falschem und richtigem Token, Einladung annehmen (ei
 src/
   app/
     (app)/            Archiv (Start, Sammlung, Wortseiten), Kuratorenbereich (/k), Verwaltung (/admin), Konto – alles nur mit Anmeldung
-    (bare)/           Anmelden, Einrichtung, Einladung, Passwort-Link
-    actions/          Server Actions (validieren mit Zod, prüfen Rechte serverseitig)
-    api/              Better Auth, Health, Audio, Export
+    (bare)/           Anmelden, Einrichtung, Einladung, Passwort-Link, öffentliche Teilen-Seite (/teilen)
+    actions/          Server Actions (validieren mit Zod, prüfen Rechte serverseitig), u. a. Entwürfe
+    api/              Better Auth, Health, Audio, Export, Kartenbild (/api/karte)
   lib/
     voting.ts         Zustandsmaschine – jede Statusänderung eines Wortes läuft hier durch
     words.ts          Einreichen, Duplikate, Redaktion, Kommentare
@@ -226,7 +232,10 @@ src/
     access.ts         Sitzung, Rollen, Richtlinien-Gate
     daily.ts          Wort des Tages
     wrapped.ts        Jahresrückblick
-    ai.ts             austauschbare KI-Provider-Schnittstelle
+    ai.ts             KI-Anbieter (OpenAI-kompatibel und Anthropic-SDK), Modellliste, Antwort-Normalisierung
+    transfer.ts       Admin-Export/-Import (Einstellungen, Wörter)
+    userStats.ts      Profilstatistik
+    share.ts          signierte Teilen-Links
   components/         Quartett-Karte, Navigation, Formulare, Sicherheitspanel
 prisma/               Schema und Migrationen (inkl. handgeschriebener Constraints)
 tests/ e2e/           Vitest- und Playwright-Tests
@@ -240,7 +249,7 @@ tests/ e2e/           Vitest- und Playwright-Tests
 - **Runden statt Überschreiben.** Jede Abstimmung ist eine `voting_round`. Neubewertungen und neue Runden legen neue Zeilen an. Ein partieller Unique-Index erlaubt nur eine offene Runde pro Wort. Statistiken entstehen aus diesen Ereignissen.
 - **Nebenläufigkeit.** Stimmabgabe sperrt Wort und Runde (`SELECT … FOR UPDATE`) in einer Transaktion. Kartennummern werden unter einem Advisory Lock vergeben. Getestet mit parallelen Stimmen.
 - **Sichtbarkeit wird nur von der Zustandsmaschine gesetzt** (`word.isPublic`). Eine DB-Constraint verhindert öffentliche, nicht akzeptierte Wörter. Öffentliche Abfragen selektieren nur öffentliche Felder.
-- **Intern statt öffentlich.** Das App-Layout leitet jede Anfrage ohne Sitzung (und ohne gültigen Gastzugang) auf `/anmelden` um, ebenso `/zufall`; Audio und Export prüfen selbst. Suchmaschinen sind ausgesperrt (`robots.txt`, `noindex`). Rollen: zwei Kuratoren mit Stimme, Admin, und Mitglieder ohne Stimmrecht, die nur lesen (Einladung ohne Kuratorenplatz). Die frühere Tabelle `submission` für Gastvorschläge bleibt im Schema, wird aber nicht mehr benutzt.
+- **Intern statt öffentlich.** Das App-Layout leitet jede Anfrage ohne Sitzung (und ohne gültigen Gastzugang) auf `/anmelden` um, ebenso `/zufall`; Audio und Export prüfen selbst. Einzige Ausnahme sind Teilen-Links: Sie zeigen genau ein Wort und gelten nur mit dem passenden HMAC-Schlüssel (`BETTER_AUTH_SECRET`). Suchmaschinen sind ausgesperrt (`robots.txt`, `noindex`). Rollen: zwei Kuratoren mit Stimme, Admin, und Mitglieder ohne Stimmrecht, die nur lesen (Einladung ohne Kuratorenplatz). Die frühere Tabelle `submission` für Gastvorschläge bleibt im Schema, wird aber nicht mehr benutzt.
 - **Rückgängig** hat zwei Stufen: 4 Sekunden lang wird die Stimme gar nicht gesendet. Danach kann die eigene Stimme zurückgenommen werden, solange die Runde offen ist. Beim Verlassen der Seite wird sofort gesendet, damit keine Stimme verloren geht.
 - **Die Stimme des anderen bleibt verborgen**, solange eine Runde offen ist (gegen Beeinflussung). Nach der Entscheidung ist alles sichtbar.
 - **Lautschrift:** IPA wird ohne Klammern gespeichert und in Charis SIL gesetzt (volle IPA-Abdeckung inkl. Verbindungsbogen t͡s). Öffentlich erscheint nur von Kuratoren bestätigte Lautschrift.
@@ -257,11 +266,12 @@ tests/ e2e/           Vitest- und Playwright-Tests
 
 Bewusst offen dokumentiert:
 
-- **Docker-Image ungetestet gebaut.** Dockerfile und Compose sind fertig, auf der Entwicklungsmaschine stand aber kein Docker zur Verfügung. Build, Migrationen, Tests und der Produktionsserver (`next start`) liefen lokal. Beim ersten `docker compose up --build` bitte das Log prüfen.
+- **Betrieb** über Portainer (Repository-Stack) auf Ubuntu, hinter Nginx Proxy Manager.
 - **Rate Limiting** übernimmt Better Auth für die Anmeldung (im Speicher, korrekt für einen App-Container).
 - **Kein E-Mail-Versand.** Einladungs- und Passwort-Links werden kopiert und persönlich weitergegeben.
 - **Text-to-Speech** ist nicht eingebaut. Die Audiofunktion nutzt echte Aufnahmen (Upload oder Aufnahme am Handy). Ein Lautsprecher-Symbol erscheint nur, wenn eine Aufnahme existiert.
-- **KI** wurde gegen die Schnittstelle implementiert, aber ohne echten Anbieter getestet. Ohne Konfiguration ist sie unsichtbar.
+- **KI** ist mit Mistral im Einsatz; die übrigen Anbieter sind nach ihrer Schnittstellenbeschreibung angebunden und nur gegen einen Test-Server geprüft. Ohne Konfiguration ist sie unsichtbar.
+- **Teilen-Links** lassen sich nicht einzeln widerrufen (der Schlüssel hängt am Wort). Ein neues `BETTER_AUTH_SECRET` macht alle ungültig, meldet aber auch alle ab. Die Link-Vorschau im Messenger nutzt die Standardschrift ohne Lautschrift; das geteilte Bild selbst ist ein Schnappschuss der echten Karte.
 - **Offline:** Der Service Worker liefert Static-Assets und eine Offline-Seite. Abstimmen offline ist nicht vorgesehen.
 - **Offener Gastmodus und Community-Wahl:** Wer seine Cookies löscht, bekommt eine neue Gastidentität und kann erneut abstimmen. Für faire Community-Wahlen besser einmalige Gastlinks verteilen.
 - **PDF-Export** läuft über die Druckansicht des Browsers („Als PDF speichern“). Dafür stimmen Schrift und Lautschrift.
