@@ -174,7 +174,8 @@ export default async function WordPage({ params }: P) {
               title={w.term}
               text={w.definitions[0]?.text ? `${w.term} – ${w.definitions[0].text}` : w.term}
               url={shareUrl(w.slug)}
-              image={cardImagePath(w.slug)}
+              card={toCard(w)}
+              fallbackImage={cardImagePath(w.slug)}
             />
             <Link href="/zufall" className="btn btn-quiet btn-sm">
               <Shuffle size={18} aria-hidden /> Zufälliges Wort
