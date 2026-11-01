@@ -57,6 +57,7 @@ export function EntryEditor({
   const [saving, startSave] = useTransition();
   const [aiBusy, startAi] = useTransition();
   const [draft, setDraft] = useState(initialDraft);
+  const [aiHint, setAiHint] = useState("");
   const ipaRefs = useRef<(HTMLInputElement | null)[]>([]);
   const [ipaFocus, setIpaFocus] = useState(0);
 
@@ -148,7 +149,7 @@ export function EntryEditor({
               disabled={aiBusy}
               onClick={() =>
                 startAi(async () => {
-                  const r = await requestAiDraftAction(wordId);
+                  const r = await requestAiDraftAction(wordId, aiHint);
                   if (!r.ok) return setMsg({ t: r.error, ok: false });
                   setDraft(r.data as { id: string; content: Suggestion });
                 })
@@ -156,6 +157,12 @@ export function EntryEditor({
             >
               {aiBusy ? <Loader2 className="animate-spin" size={16} aria-hidden /> : <Sparkles size={16} aria-hidden />} {draft ? "Neuer Entwurf" : "Entwurf holen"}
             </button>
+          </div>
+          <div className="mt-4">
+            <label htmlFor="ai-hint" className="label">
+              Beschreibung für die KI <span className="font-normal text-ink-3">(optional)</span>
+            </label>
+            <textarea id="ai-hint" rows={2} maxLength={500} value={aiHint} onChange={(e) => setAiHint(e.target.value)} className="field" placeholder="Was das Wort bei euch bedeutet" />
           </div>
           {draft ? (
             <AiDraftView

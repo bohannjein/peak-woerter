@@ -61,6 +61,12 @@ describe("KI-Anfrage", () => {
     expect(p).toContain("- Firlefanz");
   });
 
+  it("schickt die Beschreibung nur mit, wenn es eine gibt", () => {
+    expect(userPrompt({ ...input, hint: "Insider für schlechte Ausreden" })).toContain("Beschreibung der Kuratoren: Insider für schlechte Ausreden");
+    expect(userPrompt({ ...input, hint: "" })).not.toContain("Beschreibung der Kuratoren");
+    expect(userPrompt(input)).not.toContain("Beschreibung der Kuratoren");
+  });
+
   it("nutzt json_schema und fällt bei Ablehnung auf json_object zurück", async () => {
     formats.length = 0;
     const ok = getAiProvider({ aiProvider: "openai-compatible", aiBaseUrl: `${base}/v1`, aiModel: "m" })!;

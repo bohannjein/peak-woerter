@@ -44,6 +44,8 @@ export type Suggestion = z.infer<typeof Suggestion>;
 export type SuggestInput = {
   term: string;
   context?: string | null;
+  /** Short explanation typed in for this draft, when the AI misreads the word. */
+  hint?: string | null;
   categories: { name: string; keywords: string[] }[];
   /** The entry as saved so far, as plain text. */
   entry?: string | null;
@@ -64,6 +66,7 @@ meaning (ausführlicher, optional), partOfSpeech (SUBSTANTIV|VERB|ADJEKTIV|ADVER
 ipa (IPA ohne Klammern), ipaConfidence (hoch|mittel|niedrig), example (alltäglicher Beispielsatz ohne Anführungszeichen),
 categories (Namen, nur aus der gegebenen Liste), origin, originConfidence (hoch|mittel|niedrig), variants (andere Schreibweisen), caveats.
 Regeln: Erfinde nichts. Wenn du ein Wort nicht kennst (Fantasiewort, Insider), setze Felder auf null und erkläre das in caveats.
+Gibt es eine Beschreibung der Kuratoren, gilt sie als richtig und geht deiner eigenen Deutung vor: Schreibe den Eintrag auf ihrer Grundlage, auch wenn du das Wort nicht kennst. Was sie nicht hergibt, erfinde nicht dazu.
 Bei unsicherer Aussprache ipaConfidence "niedrig". Herkunft nur mit begründeter Annahme, sonst null.
 Gibt es schon einen Eintrag, ergänze, was fehlt, und verbessere Unklares. Wiederhole Vorhandenes nicht; setze solche Felder auf null.
 Übernimm Ton und Länge der Beispieleinträge, nicht ihren Inhalt.`;
@@ -148,6 +151,7 @@ export function userPrompt(input: SuggestInput) {
   return [
     `Wort: ${input.term}`,
     `Kontext der Einreichung: ${input.context || "keiner"}`,
+    input.hint ? `Beschreibung der Kuratoren: ${input.hint}` : "",
     `Bisheriger Eintrag:\n${input.entry || "noch leer"}`,
     `Vorhandene Kategorien: ${cats.join("; ") || "keine"}`,
     input.examples?.length ? `So klingen aufgenommene Einträge:\n${input.examples.map((e) => `- ${e}`).join("\n")}` : "",

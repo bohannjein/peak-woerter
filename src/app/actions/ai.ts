@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
 import { db } from "@/lib/db";
 import { requirePermission } from "@/lib/access";
 import { getSettings } from "@/lib/settings";
@@ -32,9 +33,11 @@ function entryText(w: Prisma.WordGetPayload<{ include: typeof ENTRY }>) {
   return lines.length ? lines.join("\n") : null;
 }
 
-export async function requestAiDraftAction(wordId: string) {
+export async function requestAiDraftAction(wordId: string, hint?: string) {
   return safeAction(async () => {
     const v = await requirePermission("edit");
+    const parsedHint = z.string().trim().max(500, "Beschreibung ist zu lang.").optional().safeParse(hint);
+    if (!parsedHint.success) throw new AppError(parsedHint.error.issues[0].message);
     const provider = getAiProvider(await getSettings(db), await getAiKey(db));
     if (!provider) throw new AppError("Keine KI konfiguriert.");
     const word = await db.word.findUnique({ where: { id: wordId }, include: ENTRY });
@@ -52,6 +55,7 @@ export async function requestAiDraftAction(wordId: string) {
     const content = await provider.suggest({
       term: word.term,
       context: word.submissionNote,
+      hint: parsedHint.data,
       categories: cats,
       entry: entryText(word),
       examples: samples.map((w) => `${w.term}\n${entryText(w)!.replace(/^/gm, "  ")}`),
