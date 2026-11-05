@@ -12,11 +12,13 @@ import { AppError, safeAction } from "@/lib/errors";
 import { audit } from "@/lib/audit";
 import { slugify } from "@/lib/text";
 import { BAND_COLORS } from "@/lib/categories";
+import { pushSoon } from "@/lib/push";
 
 const Id = z.string().min(1).max(64);
 
 function refresh() {
   revalidatePath("/", "layout");
+  pushSoon(db); // votes, new rounds and comments may have written messages
 }
 
 export async function castVoteAction(wordId: string, value: "YES" | "NO" | "LATER") {
@@ -72,6 +74,7 @@ export async function commentAction(wordId: string, _: unknown, fd: FormData) {
     await addComment(db, { wordId: Id.parse(wordId), userId: v.id, body: String(fd.get("body") ?? "") });
     revalidatePath(`/k/wort/${wordId}`);
     revalidatePath("/k/spaeter");
+    pushSoon(db);
     return true;
   });
 }

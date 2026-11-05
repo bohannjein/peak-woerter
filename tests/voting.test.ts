@@ -266,7 +266,7 @@ describe("Fristen und Benachrichtigungen", () => {
     const w = await word();
     await castVote(db, { wordId: w.id, userId: u.a, value: "NO" });
     await castVote(db, { wordId: w.id, userId: u.b, value: "YES" });
-    const n = await db.notification.findMany({ select: { userId: true } });
+    const n = await db.notification.findMany({ where: { kind: "spaeter" }, select: { userId: true } });
     expect(n.map((x) => x.userId).sort()).toEqual([u.a, u.b].sort());
   });
 });

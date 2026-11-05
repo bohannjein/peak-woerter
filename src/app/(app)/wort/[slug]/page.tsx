@@ -10,7 +10,9 @@ import { ChallengeButton, FavoriteButton } from "@/components/WordMemberActions"
 import { getViewer } from "@/lib/access";
 import { toCard } from "@/lib/cards";
 import { POS_LABEL, bandClass, cardNo } from "@/lib/categories";
-import { formatDate } from "@/lib/time";
+import { berlinDay, formatDate } from "@/lib/time";
+import { sightingsOf } from "@/lib/sightings";
+import { Sightings } from "@/components/Sightings";
 import { WordCard, Ipa } from "@/components/WordCard";
 import { ShareButton } from "@/components/ShareButton";
 import { cardImagePath, shareUrl } from "@/lib/share";
@@ -41,13 +43,14 @@ export default async function WordPage({ params }: P) {
     notFound();
   }
   const viewer = await getViewer();
-  const [fans, me, openRound] = viewer
+  const [fans, me, openRound, sightings] = viewer
     ? await Promise.all([
         db.user.findMany({ where: { favoriteWordId: w.id, disabled: false }, select: { id: true, name: true } }),
         db.user.findUnique({ where: { id: viewer.id }, select: { favoriteWordId: true } }),
         db.votingRound.findFirst({ where: { wordId: w.id, closedAt: null }, select: { id: true } }),
+        sightingsOf(db, w.id),
       ])
-    : [[], null, null];
+    : [[], null, null, []];
   // A saved entry took something from an AI draft (EntryEditor marks drafts as applied on save).
   const aiEdited = (await db.aiDraft.count({ where: { wordId: w.id, status: "APPLIED" } })) > 0;
   const pron = w.pronunciations.filter((p) => p.verified);
@@ -196,6 +199,15 @@ export default async function WordPage({ params }: P) {
               {fans.length > 0 && <>Lieblingswort von {fans.map((f, i) => <span key={f.id}>{i > 0 && ", "}<Link href={`/profil/${f.id}`} className="font-semibold underline decoration-line hover:decoration-ink">{f.name}</Link></span>)}. </>}
               {openRound && "Wird gerade neu bewertet."}
             </p>
+          )}
+          {viewer && (
+            <Sightings
+              wordId={w.id}
+              me={viewer.id}
+              isAdmin={viewer.isAdmin}
+              today={berlinDay()}
+              items={sightings.map((s) => ({ ...s, saidOn: s.saidOn.toISOString().slice(0, 10) }))}
+            />
           )}
         </article>
 

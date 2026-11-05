@@ -6,6 +6,7 @@ import { getViewer } from "@/lib/access";
 import { SecurityPanel, PasswordForm } from "@/components/SecurityPanel";
 import { MotionToggle, SignOutButton } from "@/components/AccountControls";
 import { EmailForm, ProfileForm } from "@/components/ProfileForms";
+import { PushSettings } from "@/components/PushSettings";
 import { db } from "@/lib/db";
 
 export const metadata: Metadata = { title: "Einstellungen", robots: { index: false } };
@@ -15,7 +16,7 @@ export default async function Konto({ searchParams }: { searchParams: Promise<{ 
   const v = await getViewer();
   if (!v) redirect("/anmelden");
   const sp = await searchParams;
-  const me = await db.user.findUniqueOrThrow({ where: { id: v.id }, select: { id: true, name: true, bio: true, avatarPath: true } });
+  const me = await db.user.findUniqueOrThrow({ where: { id: v.id }, select: { id: true, name: true, bio: true, avatarPath: true, pushOff: true } });
 
   return (
     <div className="mx-auto max-w-3xl px-4 pt-6 md:px-6 md:pt-10">
@@ -74,6 +75,15 @@ export default async function Konto({ searchParams }: { searchParams: Promise<{ 
         </h2>
         <EmailForm email={v.email} />
       </section>
+
+      {v.missing.length === 0 && (
+        <section id="mitteilungen" className="mt-14 scroll-mt-24 border-t border-line pt-10" aria-labelledby="mitt">
+          <h2 id="mitt" className="section-title mb-6">
+            Mitteilungen
+          </h2>
+          <PushSettings off={me.pushOff} curator={!!v.seat} />
+        </section>
+      )}
 
       <section className="mt-14 border-t border-line pt-10" aria-labelledby="darstellung">
         <h2 id="darstellung" className="section-title mb-6">
