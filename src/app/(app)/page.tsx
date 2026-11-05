@@ -28,16 +28,13 @@ export default async function Home() {
   // In SFW mode an NSFW word of the day is simply not shown.
   const dailyFull = daily ? await db.word.findFirst({ where: { ...where, id: daily.id }, select: publicEntrySelect }) : null;
 
-  // One start page for everyone; curators get their tasks on top.
+  // One start page for everyone; curators are greeted and find their voting below.
   const seat = viewer?.seat ?? null;
-  const Title = seat ? "h2" : "h1";
 
   return (
     <div className="mx-auto max-w-6xl px-4 pt-6 md:px-6 md:pt-10">
-      {seat && <CuratorTasks seat={seat} name={viewer!.name} />}
-      {seat && <hr className="mt-12 mb-8 border-line" />}
       <header className="max-w-2xl">
-        <Title className={seat ? "section-title" : "page-title"}>Peake Wörter</Title>
+        <h1 className="page-title">{seat ? `Hallo ${viewer!.name.split(" ")[0]}.` : "Peake Wörter"}</h1>
         <p className="mt-1.5 text-ink-2">Unser kleines Archiv für bemerkenswerte Begriffe.</p>
         <form action="/woerter" className="mt-5 flex gap-2" role="search">
           <label htmlFor="q" className="sr-only">
@@ -130,7 +127,13 @@ export default async function Home() {
         </div>
       )}
 
-      {seat && <CuratorLinks />}
+      {seat && (
+        <>
+          <hr className="mt-14 mb-8 border-line" />
+          <CuratorTasks seat={seat} />
+          <CuratorLinks />
+        </>
+      )}
     </div>
   );
 }

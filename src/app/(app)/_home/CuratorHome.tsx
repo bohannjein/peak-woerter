@@ -3,8 +3,8 @@ import { ArrowRight, Plus, Sparkles, Users } from "lucide-react";
 import { db } from "@/lib/db";
 import { berlinYear } from "@/lib/time";
 
-// Curator part of the start page: what is waiting for your vote, on top; the
-// curator areas as chips at the bottom. Rendered only for viewers with a seat.
+// Curator part of the start page, below the general content: what is waiting
+// for your vote, then the curator areas as chips. Rendered only for viewers with a seat.
 
 function List({ title, empty, items, href }: { title: string; empty: string; items: { id: string; term: string; meta?: string }[]; href?: string }) {
   return (
@@ -35,7 +35,7 @@ function List({ title, empty, items, href }: { title: string; empty: string; ite
   );
 }
 
-export async function CuratorTasks({ seat, name }: { seat: number; name: string }) {
+export async function CuratorTasks({ seat }: { seat: number }) {
   const [mine, waiting, later, reviews, laterCount] = await Promise.all([
     db.votingRound.findMany({
       where: { closedAt: null, votes: { none: { seat } } },
@@ -54,11 +54,13 @@ export async function CuratorTasks({ seat, name }: { seat: number; name: string 
   ]);
 
   return (
-    <section aria-label="Deine Aufgaben">
-      <h1 className="page-title">Hallo {name.split(" ")[0]}.</h1>
+    <section aria-labelledby="abstimmen">
+      <h2 id="abstimmen" className="section-title">
+        Abstimmen
+      </h2>
 
       {mine.length > 0 ? (
-        <Link href="/k/abstimmen" className="group mt-8 flex flex-col items-start gap-6 sm:flex-row sm:items-center sm:gap-10" aria-label={`Abstimmen: ${mine.length} ${mine.length === 1 ? "Karte" : "Karten"} im Stapel`}>
+        <Link href="/k/abstimmen" className="group mt-5 flex flex-col items-start gap-6 sm:flex-row sm:items-center sm:gap-10" aria-label={`Abstimmen: ${mine.length} ${mine.length === 1 ? "Karte" : "Karten"} im Stapel`}>
           {/* The waiting words as a small physical stack, top card readable. */}
           <span className="relative block h-40 w-60 shrink-0" aria-hidden>
             {mine.length > 2 && <span className="card-stock absolute inset-0 translate-x-3 translate-y-3 rotate-[4deg]" />}
@@ -80,7 +82,7 @@ export async function CuratorTasks({ seat, name }: { seat: number; name: string 
           </span>
         </Link>
       ) : (
-        <div className="mt-8 flex flex-col gap-4 rounded-[20px] border-2 border-dashed border-line p-6 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mt-5 flex flex-col gap-4 rounded-[20px] border-2 border-dashed border-line p-6 sm:flex-row sm:items-center sm:justify-between">
           <p className="section-title">Alles abgestimmt.</p>
           <Link href="/k/neu" className="btn btn-primary">
             <Plus size={18} aria-hidden /> Wort hinzufügen

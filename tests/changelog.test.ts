@@ -23,7 +23,7 @@ describe("Versionen und Was ist neu", () => {
   });
 
   it("zeigt nur, was neuer ist als das zuletzt Gesehene", () => {
-    expect(unseenReleases("1.1.3").map((r) => r.version)).toEqual(["1.2.0"]);
+    expect(unseenReleases("1.1.3").map((r) => r.version)).toEqual(["1.2.1", "1.2.0"]);
     expect(unseenReleases(APP_VERSION)).toEqual([]);
   });
 });
