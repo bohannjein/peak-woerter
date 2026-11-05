@@ -12,7 +12,7 @@ export type MenuItem = { href: string; label: string; badge?: number };
  * Manual popover with its own backdrop: a tap outside only closes the menu and
  * never reaches the element underneath (light dismiss would let it through).
  */
-export function SideMenu({ items }: { items: MenuItem[] }) {
+export function SideMenu({ items, version }: { items: MenuItem[]; version: string }) {
   const unread = items.reduce((n, i) => n + (i.badge ?? 0), 0);
   const menu = useRef<HTMLElement>(null);
   const [open, setOpen] = useState(false);
@@ -65,6 +65,7 @@ export function SideMenu({ items }: { items: MenuItem[] }) {
               </li>
             ))}
           </ul>
+          <p className="tabular mt-auto px-3 pt-8 text-sm text-ink-3">Peake Wörter v{version}</p>
         </div>
       </nav>
     </>

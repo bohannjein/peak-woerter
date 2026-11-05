@@ -5,12 +5,14 @@ import { db } from "@/lib/db";
 import { requireMemberPage } from "@/lib/access";
 import { GAMES } from "@/lib/games";
 import { loadPlay } from "@/lib/puzzles/play";
+import { groupResults } from "@/lib/puzzles/group";
 import { isPuzzle } from "@/lib/puzzles/registry";
 import { berlinDay, formatDate } from "@/lib/time";
 import { Wortjagd } from "../_games/Wortjagd";
 import { Quartett } from "../_games/Quartett";
 import { Bedeutung } from "../_games/Bedeutung";
 import { Sudoku } from "../_games/Sudoku";
+import { GroupResults } from "../_games/GroupResults";
 
 export const dynamic = "force-dynamic";
 
@@ -32,6 +34,7 @@ export default async function PuzzlePage({ params }: { params: Promise<{ game: s
   const v = await requireMemberPage();
   const day = berlinDay();
   const play = await loadPlay(db, game, v.id, day);
+  const group = play ? await groupResults(db, game, day) : [];
 
   return (
     <div className="mx-auto max-w-3xl px-4 pt-6 pb-16 md:px-6 md:pt-10">
@@ -53,6 +56,7 @@ export default async function PuzzlePage({ params }: { params: Promise<{ game: s
       ) : (
         <Sudoku initial={play as never} day={day} />
       )}
+      {play && <GroupResults rows={group} me={v.id} done={play.finished} />}
     </div>
   );
 }

@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { requireMemberPage } from "@/lib/access";
 import { GAMES, todaysRound } from "@/lib/games";
 import { puzzleStats } from "@/lib/puzzles/play";
+import { groupCounts } from "@/lib/puzzles/group";
 import { PUZZLES, type PuzzleKey } from "@/lib/puzzles/registry";
 import { berlinDay } from "@/lib/time";
 import { PushToggle } from "@/components/PushToggle";
@@ -18,10 +19,11 @@ export default async function Spiele() {
   const v = await requireMemberPage();
   const today = berlinDay();
   const keys = Object.keys(PUZZLES) as PuzzleKey[];
-  const [stats, rounds, satz] = await Promise.all([
+  const [stats, rounds, satz, counts] = await Promise.all([
     puzzleStats(db, v.id, today),
     Promise.all(keys.map((k) => todaysRound(db, k, today))),
     db.gameRound.findUnique({ where: { game_day: { game: "satz", day: today } }, select: { entries: { where: { userId: v.id }, select: { id: true } } } }),
+    groupCounts(db, today),
   ]);
 
   return (
@@ -49,9 +51,18 @@ export default async function Spiele() {
                 <div className="px-5 py-4 text-[var(--card-ink)]">
                   <p className="display text-[1.9rem]">{GAMES[k].title}</p>
                   <p className="mt-1 text-sm text-[var(--card-ink-2)]">{available ? GAMES[k].description : "Heute noch nicht spielbar, es fehlen passende Wörter."}</p>
-                  {s.streak > 0 && (
-                    <p className="tabular mt-3 flex items-center gap-1 text-sm font-semibold">
-                      <Flame size={15} aria-hidden /> {s.streak} {s.streak === 1 ? "Tag" : "Tage"} in Folge
+                  {(s.streak > 0 || counts[k]) && (
+                    <p className="tabular mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+                      {s.streak > 0 && (
+                        <span className="flex items-center gap-1 font-semibold">
+                          <Flame size={15} aria-hidden /> {s.streak} {s.streak === 1 ? "Tag" : "Tage"} in Folge
+                        </span>
+                      )}
+                      {counts[k] && (
+                        <span className="text-[var(--card-ink-2)]">
+                          Gruppe: {counts[k].won} von {counts[k].finished} gelöst
+                        </span>
+                      )}
                     </p>
                   )}
                 </div>

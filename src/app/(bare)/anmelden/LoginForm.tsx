@@ -22,7 +22,7 @@ export function LoginForm({ guestOpen, guestInvalid }: { guestOpen: boolean; gue
   }
 
   const done = () => {
-    router.replace("/k");
+    router.replace("/");
     router.refresh();
   };
 

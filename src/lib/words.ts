@@ -4,6 +4,7 @@ import { audit } from "./audit";
 import { cleanIpa, cleanTerm, normalizeTerm, slugify } from "./text";
 import { castVote, openInitialRound, openRound } from "./voting";
 import { autoTag } from "./tagging";
+import { notify } from "./notifications";
 import type { PartOfSpeech, WordStatus } from "@/generated/prisma/enums";
 
 export type DuplicateInfo = { kind: "none" } | { kind: "word"; status: WordStatus; slug: string; term: string; id: string };
@@ -160,5 +161,16 @@ export async function addComment(db: Db, input: { wordId: string; userId: string
   if (!body) throw new AppError("Kommentar ist leer.");
   if (body.length > 2000) throw new AppError("Kommentar ist zu lang (max. 2000 Zeichen).");
   const round = await db.votingRound.findFirst({ where: { wordId: input.wordId }, orderBy: { number: "desc" } });
-  return db.comment.create({ data: { wordId: input.wordId, userId: input.userId, body, roundId: round?.id } });
+  return db.$transaction(async (tx) => {
+    const c = await tx.comment.create({ data: { wordId: input.wordId, userId: input.userId, body, roundId: round?.id } });
+    // Whoever submitted the word or wrote here before hears about it.
+    // One query at a time: a transaction runs on a single connection.
+    const word = await tx.word.findUniqueOrThrow({ where: { id: input.wordId }, select: { term: true, submittedById: true } });
+    const earlier = await tx.comment.findMany({ where: { wordId: input.wordId, id: { not: c.id } }, select: { userId: true }, distinct: ["userId"] });
+    const author = await tx.user.findUniqueOrThrow({ where: { id: input.userId }, select: { name: true } });
+    const to = [word.submittedById, ...earlier.map((e) => e.userId)].filter((id): id is string => !!id && id !== input.userId);
+    const excerpt = body.length > 80 ? `${body.slice(0, 79)}…` : body;
+    await notify(tx, to, { wordId: input.wordId, kind: "kommentar", body: `${author.name} zu „${word.term}“: ${excerpt}`, href: `/k/wort/${input.wordId}` });
+    return c;
+  });
 }

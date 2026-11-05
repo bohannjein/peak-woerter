@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { requireMember } from "@/lib/access";
 import { changeEmail, setFavorite, updateProfile } from "@/lib/profile";
 import { AppError, safeAction } from "@/lib/errors";
+import { markNewsSeen } from "@/lib/news";
 
 const Id = z.string().min(1).max(64);
 
@@ -55,6 +56,15 @@ export async function markNotificationsReadAction() {
     const v = await requireMember();
     await db.notification.updateMany({ where: { userId: v.id, readAt: null }, data: { readAt: new Date() } });
     revalidatePath("/", "layout");
+    return true;
+  });
+}
+
+/** "Was ist neu" was shown (dialog closed or page opened): remember the current version. */
+export async function markNewsSeenAction() {
+  return safeAction(async () => {
+    const v = await requireMember();
+    await markNewsSeen(v.id);
     return true;
   });
 }

@@ -1,19 +1,36 @@
-// In-process clock for the self-hosted container (no cron there): checks every
-// minute whether the 10:00 puzzle reminder is due. Started from instrumentation.ts.
+// In-process clock for the self-hosted container (no cron there). Every minute:
+// closes voting rounds past their deadline, announces election stages, sends the
+// 10:00 puzzle reminder and pushes new messages. Started from instrumentation.ts.
 import { db } from "./db";
+import { announceElections } from "./elections";
 import { todaysRound } from "./games";
-import { dailyPuzzlePush } from "./push";
+import { dailyPuzzlePush, flushNotifications } from "./push";
 import { PUZZLES, type PuzzleKey } from "./puzzles/registry";
+import { settleRounds } from "./voting";
 
 const g = globalThis as unknown as { __peakeClock?: NodeJS.Timeout };
 
+const jobs: [string, () => Promise<unknown>][] = [
+  ["Abstimmungen", () => settleRounds(db)],
+  ["Wort-des-Jahres-Ankündigung", () => announceElections(db)],
+  [
+    "Rätsel-Erinnerung",
+    () =>
+      dailyPuzzlePush(db, async (day) => {
+        for (const k of Object.keys(PUZZLES) as PuzzleKey[]) await todaysRound(db, k, day);
+      }),
+  ],
+  // Last, so messages written by the jobs above go out in the same tick.
+  ["Push", () => flushNotifications(db)],
+];
+
 async function tick() {
-  try {
-    await dailyPuzzlePush(db, async (day) => {
-      for (const k of Object.keys(PUZZLES) as PuzzleKey[]) await todaysRound(db, k, day);
-    });
-  } catch (e) {
-    console.error("Rätsel-Erinnerung", e);
+  for (const [name, run] of jobs) {
+    try {
+      await run();
+    } catch (e) {
+      console.error(name, e);
+    }
   }
 }
 

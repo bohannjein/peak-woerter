@@ -6,6 +6,7 @@
 // JURY: accounts vote. COMMUNITY: accounts and guests (each guest browser = one voter).
 import type { Db } from "./db";
 import { AppError } from "./errors";
+import { notify } from "./notifications";
 import type { ElectionKind } from "@/generated/prisma/enums";
 
 export type Voter = { userId: string; guestId?: never } | { guestId: string; userId?: never };
@@ -101,4 +102,42 @@ export async function decideElection(db: Db, electionId: string) {
 /** Current scores for display (stage 2 and 3 are shown live). */
 export async function standings(db: Db, electionId: string, stage: number) {
   return scores(db, electionId, stage);
+}
+
+const STAGE_NEWS: Record<1 | 2 | 3, string> = {
+  1: "hat begonnen: Jetzt kannst du nominieren.",
+  2: "geht in die Vorauswahl.",
+  3: "ist im Finale. Wähl mit!",
+};
+
+/**
+ * Tells everyone when a stage of a running election begins (minute clock). The
+ * stage is claimed per election in app_setting, so each one is announced once;
+ * stages that began more than a day ago (server was down) are skipped quietly.
+ */
+export async function announceElections(db: Db, now = new Date()) {
+  const open = await db.election.findMany({ where: { endsAt: { gt: new Date(now.getTime() - 86_400_000) }, nominateFrom: { lte: now } } });
+  let announced = 0;
+  for (const e of open) {
+    const stage = stageOf(e, now);
+    if (stage === 0) continue;
+    const startedAt = [e.nominateFrom, e.shortlistFrom, e.finalFrom, e.endsAt][stage - 1];
+    const key = `electionStage:${e.id}`;
+    const claimed = await db.$executeRaw`
+      INSERT INTO app_setting (key, value, "updatedAt") VALUES (${key}, to_jsonb(${stage}::int), now())
+      ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, "updatedAt" = now()
+      WHERE (app_setting.value)::int < EXCLUDED.value::int`;
+    if (!claimed || now.getTime() - startedAt.getTime() > 86_400_000) continue;
+    const name = `Die Wahl zum ${KIND_LABEL[e.kind]} ${e.year}`;
+    let body: string;
+    if (stage === 4) {
+      const done = await decideElection(db, e.id);
+      const winner = done?.winnerWordId ? await db.word.findUnique({ where: { id: done.winnerWordId }, select: { term: true } }) : null;
+      body = winner ? `${KIND_LABEL[e.kind]} ${e.year}: „${winner.term}“` : `${name} ist vorbei.`;
+    } else body = `${name} ${STAGE_NEWS[stage]}`;
+    const users = await db.user.findMany({ where: { disabled: false }, select: { id: true } });
+    await notify(db, users.map((u) => u.id), { kind: "wahl", body, href: "/wort-des-jahres" });
+    announced++;
+  }
+  return announced;
 }

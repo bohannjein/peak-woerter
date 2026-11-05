@@ -20,8 +20,8 @@ export default async function Runde({ searchParams }: { searchParams: Promise<{ 
     return (
       <div className="mx-auto max-w-xl px-4 pt-16 text-center">
         <p className="page-title">Nichts zu besprechen.</p>
-        <Link href="/k" className="btn btn-primary mt-6">
-          Zur Übersicht
+        <Link href="/" className="btn btn-primary mt-6">
+          Zur Startseite
         </Link>
       </div>
     );

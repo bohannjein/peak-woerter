@@ -1,8 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Bell, BellOff, Loader2 } from "lucide-react";
-import { pushKeyAction, subscribePushAction, testPushAction, unsubscribePushAction } from "@/app/actions/push";
+import { pushKeyAction, setPushKindAction, subscribePushAction, testPushAction, unsubscribePushAction } from "@/app/actions/push";
 
 type State = "loading" | "unsupported" | "ios" | "dev" | "denied" | "off" | "on";
 
@@ -11,8 +12,11 @@ function keyBytes(base64: string) {
   return Uint8Array.from(b, (c) => c.charCodeAt(0));
 }
 
-/** Daily reminder at 10:00 when the new puzzles are out. One subscription per browser. */
-export function PushToggle() {
+/**
+ * Push for this browser (one subscription per browser). "raetsel" on the games
+ * page speaks of the 10:00 reminder; "alle" in the settings, above the kinds list.
+ */
+export function PushToggle({ variant = "raetsel" }: { variant?: "raetsel" | "alle" }) {
   const [state, setState] = useState<State>("loading");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
@@ -41,6 +45,8 @@ export function PushToggle() {
       const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyBytes(key.data) });
       const r = await subscribePushAction(sub.toJSON());
       if (!r.ok) throw new Error(r.error);
+      // Switching on here means: I want the reminder, even if it was off in the settings.
+      if (variant === "raetsel") await setPushKindAction("raetsel", true);
       setState("on");
     } catch (e) {
       setMsg(e instanceof Error && e.message ? e.message : "Hat nicht geklappt.");
@@ -73,10 +79,20 @@ export function PushToggle() {
     <div className="mt-6 flex flex-wrap items-center gap-3 rounded-2xl border-[1.5px] border-line p-4">
       {state === "on" ? <Bell size={20} aria-hidden /> : <BellOff size={20} className="text-ink-3" aria-hidden />}
       <div className="min-w-0 flex-1">
-        <p className="font-bold">Erinnerung um 10 Uhr</p>
+        <p className="font-bold">{variant === "raetsel" ? "Erinnerung um 10 Uhr" : "Mitteilungen in diesem Browser"}</p>
         <p className="text-sm text-ink-2">
-          {state === "on" && "An. Dieser Browser meldet sich, sobald die neuen Rätsel da sind."}
-          {state === "off" && "Eine Mitteilung pro Tag, wenn die neuen Rätsel da sind."}
+          {state === "on" &&
+            (variant === "raetsel" ? (
+              <>
+                An. Dieser Browser meldet sich, sobald die neuen Rätsel da sind.{" "}
+                <Link href="/konto#mitteilungen" className="font-semibold underline">
+                  Weitere Mitteilungen
+                </Link>
+              </>
+            ) : (
+              "An. Welche Mitteilungen du bekommst, stellst du unten ein."
+            ))}
+          {state === "off" && (variant === "raetsel" ? "Eine Mitteilung pro Tag, wenn die neuen Rätsel da sind." : "Aus. Schalte sie ein, um Rätsel, Abstimmungen und Antworten mitzubekommen.")}
           {state === "denied" && "Mitteilungen sind für diese Seite blockiert. Erlaube sie in den Browser-Einstellungen."}
           {state === "ios" && "Auf dem iPhone geht das nur, wenn Peake Wörter zum Home-Bildschirm hinzugefügt ist (Teilen → Zum Home-Bildschirm)."}
           {state === "unsupported" && "Dieser Browser kann keine Mitteilungen empfangen."}

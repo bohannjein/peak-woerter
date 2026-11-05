@@ -28,6 +28,10 @@ model User {
   avatarPath       String? // file on the data volume, served by /api/avatar
   favoriteWordId   String?
   favoriteWord     Word?    @relation("FavoriteWord", fields: [favoriteWordId], references: [id], onDelete: SetNull)
+  // Push kinds this person turned off (lib/push.ts PUSH_KINDS); everything else is on.
+  pushOff          String[] @default([])
+  // Last app version whose "Was ist neu" this person saw (lib/changelog.ts).
+  seenVersion      String?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
@@ -48,6 +52,7 @@ model User {
   gameVotes     GameVote[]
   gamePlays     GamePlay[]
   pushSubs      PushSubscription[]
+  sightings     Sighting[]
   guestAccesses GuestAccess[]
   drafts        Draft[]
 
@@ -233,6 +238,7 @@ model Word {
   electionVotes  ElectionVote[]
   electionWins   Election[]
   gameRounds     GameRound[]
+  sightings      Sighting[]
 
   @@index([status])
   @@index([isPublic, term])
@@ -471,10 +477,15 @@ model Notification {
   word      Word?     @relation(fields: [wordId], references: [id], onDelete: Cascade)
   body      String
   href      String?
+  // Push kind (lib/push.ts PUSH_KINDS); null = in-app only.
+  kind      String?
+  // Set once the clock has sent (or skipped) the push for this message.
+  pushedAt  DateTime?
   readAt    DateTime?
   createdAt DateTime  @default(now())
 
   @@index([userId, readAt])
+  @@index([pushedAt, createdAt])
   @@map("notification")
 }
 
@@ -654,4 +665,21 @@ model PushSubscription {
 
   @@index([userId])
   @@map("push_subscription")
+}
+
+// Beleg: when and where a word was actually said, by whoever noticed it.
+model Sighting {
+  id        String   @id @default(cuid())
+  wordId    String
+  word      Word     @relation(fields: [wordId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  saidOn    DateTime @db.Date
+  occasion  String // Anlass oder Ort, e.g. "Grillabend bei Tom"
+  saidBy    String? // who said it (free text, may be someone outside the group)
+  quote     String? // the sentence as it fell
+  createdAt DateTime @default(now())
+
+  @@index([wordId, saidOn])
+  @@map("sighting")
 }

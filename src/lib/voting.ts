@@ -11,7 +11,8 @@ import type { Db, Tx } from "./db";
 import { AppError } from "./errors";
 import { audit } from "./audit";
 import { getSettings, type Settings } from "./settings";
-import { notify } from "./notifications";
+import { notify, notifyCurators } from "./notifications";
+import { cardNo } from "./categories";
 import type { RoundKind, RoundOutcome, VoteValue } from "@/generated/prisma/enums";
 
 export type Decision = Exclude<RoundOutcome, "CANCELLED">;
@@ -71,12 +72,17 @@ async function nextCardNumber(tx: Tx): Promise<number> {
 async function closeRound(tx: Tx, wordId: string, round: { id: string; kind: RoundKind }, outcome: Decision) {
   const now = new Date();
   await tx.votingRound.update({ where: { id: round.id }, data: { closedAt: now, outcome } });
-  const word = await tx.word.findUniqueOrThrow({ where: { id: wordId }, select: { term: true, cardNumber: true, acceptedAt: true, submittedById: true } });
+  const word = await tx.word.findUniqueOrThrow({ where: { id: wordId }, select: { term: true, slug: true, cardNumber: true, acceptedAt: true, submittedById: true } });
   if (outcome === "ACCEPTED") {
+    const cardNumber = word.cardNumber ?? (await nextCardNumber(tx));
     await tx.word.update({
       where: { id: wordId },
-      data: { status: "ACCEPTED", isPublic: true, acceptedAt: word.acceptedAt ?? now, cardNumber: word.cardNumber ?? (await nextCardNumber(tx)) },
+      data: { status: "ACCEPTED", isPublic: true, acceptedAt: word.acceptedAt ?? now, cardNumber },
     });
+    // A challenge that ends with the word staying is no news for the submitter.
+    if (round.kind !== "REVIEW" && word.submittedById) {
+      await notify(tx, [word.submittedById], { wordId, kind: "aufgenommen", body: `„${word.term}“ ist jetzt in der Sammlung (${cardNo(cardNumber)}).`, href: `/wort/${word.slug}` });
+    }
   } else {
     await tx.word.update({ where: { id: wordId }, data: { status: outcome, isPublic: false } });
   }
@@ -84,7 +90,7 @@ async function closeRound(tx: Tx, wordId: string, round: { id: string; kind: Rou
     // Submitter and everyone who said Ja get a nudge to add context.
     const yes = await tx.vote.findMany({ where: { roundId: round.id, value: "YES" }, select: { userId: true } });
     const to = [word.submittedById, ...yes.map((v) => v.userId)].filter((x): x is string => !!x);
-    await notify(tx, to, { wordId, body: `„${word.term}“ liegt jetzt auf der Später-Liste. Magst du Kontext ergänzen?`, href: `/k/wort/${wordId}` });
+    await notify(tx, to, { wordId, kind: "spaeter", body: `„${word.term}“ liegt jetzt auf der Später-Liste. Magst du Kontext ergänzen?`, href: `/k/wort/${wordId}` });
   }
   await audit(tx, null, "round.closed", "word", wordId, { roundId: round.id, outcome });
 }
@@ -195,6 +201,13 @@ export async function openRound(db: Db, input: { wordId: string; userId: string;
     if (input.kind === "REVOTE") {
       await tx.word.update({ where: { id: input.wordId }, data: { status: "VOTING", isPublic: false } });
     }
+    const term = (await tx.word.findUniqueOrThrow({ where: { id: input.wordId }, select: { term: true } })).term;
+    await notifyCurators(tx, input.userId, {
+      wordId: input.wordId,
+      kind: "runde",
+      body: input.kind === "REVIEW" ? `„${term}“ wird angefochten. Stimm mit ab.` : `„${term}“ steht wieder zur Abstimmung.`,
+      href: "/k/abstimmen",
+    });
     if (input.reason && input.kind === "REVIEW") {
       await tx.comment.create({ data: { wordId: input.wordId, roundId: round.id, userId: input.userId, body: input.reason } });
     }
@@ -208,6 +221,10 @@ export async function openRound(db: Db, input: { wordId: string; userId: string;
 }
 
 /** Creates the first round for a freshly created word (inside the caller's transaction). */
-export async function openInitialRound(tx: Tx, wordId: string, userId: string | null) {
-  return tx.votingRound.create({ data: { wordId, number: 1, kind: "INITIAL", openedById: userId, deadline: await deadline(tx) } });
+export async function openInitialRound(tx: Tx, wordId: string, userId: string | null, opts: { quiet?: boolean } = {}) {
+  const round = await tx.votingRound.create({ data: { wordId, number: 1, kind: "INITIAL", openedById: userId, deadline: await deadline(tx) } });
+  if (opts.quiet) return round;
+  const { term } = await tx.word.findUniqueOrThrow({ where: { id: wordId }, select: { term: true } });
+  await notifyCurators(tx, userId, { wordId, kind: "runde", body: `Neues Wort zur Abstimmung: „${term}“`, href: "/k/abstimmen" });
+  return round;
 }

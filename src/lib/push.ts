@@ -1,12 +1,16 @@
-// Web push for the daily puzzle reminder. VAPID keys are created on first use
+// Web push: the daily puzzle reminder and messages (Notification rows with a
+// kind), which the minute clock sends after they are committed. VAPID keys are created on first use
 // and kept in app_setting, so no extra environment variables are needed
 // (VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY override them).
 import webpush from "web-push";
 import type { Db } from "./db";
 import { AppError } from "./errors";
 import { berlinDay, TZ } from "./time";
+import { PUSH_KINDS, isPushKind, type PushKind } from "./pushKinds";
 
 export const PUSH_HOUR = 10;
+
+export { PUSH_KINDS, isPushKind, type PushKind };
 const KEY = "vapidKeys";
 const SENT = "puzzlePushSentDay";
 
@@ -38,9 +42,14 @@ export async function unsubscribe(db: Db, userId: string, endpoint: string) {
 
 export type PushPayload = { title: string; body: string; url: string; tag?: string };
 
-/** Sends to all (or the given users') browsers; drops subscriptions the push service has forgotten. */
-export async function sendPush(db: Db, payload: PushPayload, userIds?: string[]) {
-  const subs = await db.pushSubscription.findMany({ where: { ...(userIds ? { userId: { in: userIds } } : {}), user: { disabled: false } } });
+/**
+ * Sends to all (or the given users') browsers, skipping people who turned `kind` off;
+ * drops subscriptions the push service has forgotten.
+ */
+export async function sendPush(db: Db, payload: PushPayload, userIds?: string[], kind?: PushKind) {
+  const subs = await db.pushSubscription.findMany({
+    where: { ...(userIds ? { userId: { in: userIds } } : {}), user: { disabled: false, ...(kind ? { NOT: { pushOff: { has: kind } } } : {}) } },
+  });
   if (!subs.length) return { sent: 0, removed: 0 };
   const { publicKey, privateKey } = await vapidKeys(db);
   const subject = process.env.BETTER_AUTH_URL?.startsWith("https://") ? process.env.BETTER_AUTH_URL : "mailto:admin@localhost";
@@ -84,6 +93,56 @@ export async function dailyPuzzlePush(db: Db, prepare: (day: string) => Promise<
     WHERE app_setting.value IS DISTINCT FROM EXCLUDED.value`;
   if (!claimed) return false;
   await prepare(day);
-  await sendPush(db, { title: "Neue Rätsel sind da", body: "Wortjagd, Quartett, Echt oder erfunden? und Sudoku warten auf dich.", url: "/spiele", tag: `raetsel-${day}` });
+  await sendPush(db, { title: PUSH_KINDS.raetsel.title, body: "Wortjagd, Quartett, Echt oder erfunden? und Sudoku warten auf dich.", url: "/spiele", tag: `raetsel-${day}` }, undefined, "raetsel");
   return true;
+}
+
+export async function setPushOff(db: Db, userId: string, kind: PushKind, off: boolean) {
+  const u = await db.user.findUniqueOrThrow({ where: { id: userId }, select: { pushOff: true } });
+  const next = new Set(u.pushOff);
+  if (off) next.add(kind);
+  else next.delete(kind);
+  await db.user.update({ where: { id: userId }, data: { pushOff: [...next] } });
+  return [...next];
+}
+
+const STALE_MS = 6 * 3600_000;
+const BUNDLE = 3;
+
+/**
+ * Sends the pushes for new messages. Rows are claimed with SKIP LOCKED, so two
+ * clocks (or a clock and an action) never send one twice. Old ones (server was
+ * down) are marked without sending; more than BUNDLE for one person become one push.
+ */
+export async function flushNotifications(db: Db, now = new Date()) {
+  const rows = await db.$queryRaw<{ id: string; userId: string; body: string; href: string | null; kind: string | null; createdAt: Date }[]>`
+    UPDATE notification SET "pushedAt" = ${now}
+    WHERE id IN (SELECT id FROM notification WHERE "pushedAt" IS NULL ORDER BY "createdAt" LIMIT 200 FOR UPDATE SKIP LOCKED)
+    RETURNING id, "userId", body, href, kind, "createdAt"`;
+  const byUser = new Map<string, typeof rows>();
+  for (const r of rows) {
+    if (!r.kind || !isPushKind(r.kind) || now.getTime() - r.createdAt.getTime() > STALE_MS) continue;
+    byUser.set(r.userId, [...(byUser.get(r.userId) ?? []), r]);
+  }
+  let sent = 0;
+  for (const [userId, list] of byUser) {
+    if (list.length > BUNDLE) {
+      const kinds = [...new Set(list.map((r) => r.kind as PushKind))];
+      // Bundled: only to browsers of people who have at least one of these kinds on.
+      const u = await db.user.findUnique({ where: { id: userId }, select: { pushOff: true } });
+      if (u && kinds.every((k) => u.pushOff.includes(k))) continue;
+      sent += (await sendPush(db, { title: "Peake Wörter", body: `${list.length} neue Nachrichten`, url: "/nachrichten", tag: "nachrichten" }, [userId])).sent;
+      continue;
+    }
+    for (const r of list) {
+      const kind = r.kind as PushKind;
+      sent += (await sendPush(db, { title: PUSH_KINDS[kind].title, body: r.body, url: r.href ?? "/nachrichten", tag: `n-${r.id}` }, [userId], kind)).sent;
+    }
+  }
+  return { claimed: rows.length, sent };
+}
+
+/** Run after a response: pushes what an action just wrote, without waiting for the clock. */
+export function pushSoon(db: Db) {
+  void flushNotifications(db).catch((e) => console.error("push", e));
 }

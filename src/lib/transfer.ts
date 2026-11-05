@@ -199,7 +199,7 @@ export async function importData(db: Db, data: z.infer<typeof File>, parts: Part
           },
         });
         // A word in VOTING needs its open round, like a fresh submission.
-        if (w.status === "VOTING") await openInitialRound(tx, word.id, userId);
+        if (w.status === "VOTING") await openInitialRound(tx, word.id, userId, { quiet: true }); // a restore is not news
       });
       res.words++;
     }

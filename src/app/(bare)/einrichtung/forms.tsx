@@ -126,7 +126,7 @@ export function FinishButton() {
   const router = useRouter();
   const [state, action, pending] = useFormAction(async () => {
     const r = await setupFinishAction();
-    if (r.ok) router.replace("/k");
+    if (r.ok) router.replace("/");
     return r;
   });
   return (

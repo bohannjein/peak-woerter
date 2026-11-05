@@ -32,7 +32,10 @@ export async function puzzleMoveAction(game: string, input: unknown) {
     const v = await requireMember();
     if (!isPuzzle(game)) throw new AppError("Unbekanntes Rätsel.", 404);
     const r = await playMove(db, game, v.id, input);
-    if (r.finished) revalidatePath("/spiele");
+    if (r.finished) {
+      revalidatePath("/spiele");
+      revalidatePath(`/spiele/${game}`); // the group results below the game
+    }
     return r;
   });
 }
