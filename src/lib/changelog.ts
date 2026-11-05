@@ -10,6 +10,11 @@ export type Release = { version: string; date: string; items: ChangeItem[] };
 
 export const CHANGELOG: Release[] = [
   {
+    version: "1.2.1",
+    date: "2026-11-06",
+    items: [{ title: "Startseite aufgeräumt", text: "Unter der Begrüßung kommen wieder zuerst Suche, Wort des Tages und Neues. Die Abstimmungen stehen darunter.", href: "/" }],
+  },
+  {
     version: "1.2.0",
     date: "2026-11-06",
     items: [
