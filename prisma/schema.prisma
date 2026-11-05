@@ -30,6 +30,8 @@ model User {
   favoriteWord     Word?    @relation("FavoriteWord", fields: [favoriteWordId], references: [id], onDelete: SetNull)
   // Push kinds this person turned off (lib/push.ts PUSH_KINDS); everything else is on.
   pushOff          String[] @default([])
+  // Last app version whose "Was ist neu" this person saw (lib/changelog.ts).
+  seenVersion      String?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 

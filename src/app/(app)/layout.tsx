@@ -19,6 +19,9 @@ import { InstallSw } from "@/components/InstallSw";
 import { EasterEggs } from "@/components/EasterEggs";
 import { BackupReminder } from "@/components/BackupReminder";
 import { Avatar } from "@/components/Avatar";
+import { WhatsNewDialog } from "@/components/WhatsNew";
+import { APP_VERSION, type Release } from "@/lib/changelog";
+import { pendingNews } from "@/lib/news";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const [viewer, settings] = await Promise.all([getViewer(), getSettings(db)]);
@@ -29,6 +32,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   let menu: MenuItem[];
   let me: { id: string; name: string; avatarPath: string | null } | null = null;
   let backupDue = false;
+  let news: Release[] = [];
   if (!viewer) {
     // Internal archive: without an account only guests (if enabled) see anything.
     const guest = await getGuest();
@@ -46,7 +50,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     ];
   } else {
     if (viewer.missing.length && path !== "/konto") redirect("/konto?pflicht=1");
-    me = { id: viewer.id, name: viewer.name, avatarPath: (await db.user.findUnique({ where: { id: viewer.id }, select: { avatarPath: true } }))?.avatarPath ?? null };
+    const u = await db.user.findUnique({ where: { id: viewer.id }, select: { avatarPath: true, seenVersion: true } });
+    me = { id: viewer.id, name: viewer.name, avatarPath: u?.avatarPath ?? null };
+    // Once after an update; not on the page that lists everything anyway.
+    if (u && path !== "/neuigkeiten") news = await pendingNews(viewer.id, u.seenVersion);
     // Like Instagram: the last tab is always your own profile, shown as your avatar.
     const profile: NavItem = { href: `/profil/${viewer.id}`, label: "Profil", icon: "User", avatar: me };
     await settleRounds(db);
@@ -92,6 +99,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       ...(can(viewer, "tags") ? [{ href: "/k/kategorien", label: "Kategorien & Tags" }] : []),
       ...(can(viewer, "negative") ? [{ href: "/k/negativliste", label: "Negativliste" }] : []),
       { href: "/export", label: "Liste exportieren" },
+      { href: "/neuigkeiten", label: "Was ist neu" },
     ];
   }
 
@@ -112,7 +120,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
                 <Avatar user={me} size={34} />
               </Link>
             )}
-            <SideMenu items={menu} />
+            <SideMenu items={menu} version={APP_VERSION} />
           </div>
         </div>
       </header>
@@ -123,6 +131,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <InstallSw />
       <EasterEggs />
       {backupDue && <BackupReminder />}
+      {news.length > 0 && <WhatsNewDialog releases={news} />}
     </div>
   );
 }
