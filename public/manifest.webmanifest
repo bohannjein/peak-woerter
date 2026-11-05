@@ -16,6 +16,7 @@
     { "src": "/icons/icon.svg", "sizes": "any", "type": "image/svg+xml" }
   ],
   "shortcuts": [
+    { "name": "Rätsel", "url": "/spiele", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] },
     { "name": "Abstimmen", "url": "/k/abstimmen", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] },
     { "name": "Wort hinzufügen", "url": "/k/neu", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] }
   ]

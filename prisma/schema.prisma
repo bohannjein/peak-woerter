@@ -46,6 +46,8 @@ model User {
   electionVotes ElectionVote[]
   gameEntries   GameEntry[]
   gameVotes     GameVote[]
+  gamePlays     GamePlay[]
+  pushSubs      PushSubscription[]
   guestAccesses GuestAccess[]
   drafts        Draft[]
 
@@ -581,9 +583,12 @@ model GameRound {
   day       String // YYYY-MM-DD Europe/Berlin
   wordId    String
   word      Word        @relation(fields: [wordId], references: [id], onDelete: Cascade)
+  // Daily puzzles (lib/puzzles): generated data including the solution. Never sent raw to the client.
+  puzzle    Json?
   createdAt DateTime    @default(now())
   entries   GameEntry[]
   votes     GameVote[]
+  plays     GamePlay[]
 
   @@unique([game, day])
   @@map("game_round")
@@ -615,4 +620,38 @@ model GameVote {
 
   @@unique([roundId, voterId])
   @@map("game_vote")
+}
+
+// One player's progress in a daily puzzle; every move is checked on the server.
+model GamePlay {
+  id         String    @id @default(cuid())
+  roundId    String
+  round      GameRound @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  state      Json
+  finished   Boolean   @default(false)
+  won        Boolean   @default(false)
+  score      Int?
+  durationMs Int?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@unique([roundId, userId])
+  @@index([userId, finished])
+  @@map("game_play")
+}
+
+// Web push: one row per browser that asked for the daily puzzle reminder.
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@map("push_subscription")
 }

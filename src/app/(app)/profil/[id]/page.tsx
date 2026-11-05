@@ -5,6 +5,7 @@ import { ArrowLeft, Lock, Pencil, Settings as SettingsIcon, Trophy } from "lucid
 import { db } from "@/lib/db";
 import { requireMemberPage } from "@/lib/access";
 import { computeUserStats, type PrivateStats } from "@/lib/userStats";
+import { puzzleStats } from "@/lib/puzzles/play";
 import { publicEntrySelect, publicWhere } from "@/lib/queries";
 import { sfwOn } from "@/lib/sfw";
 import { formatDate } from "@/lib/time";
@@ -78,10 +79,11 @@ export default async function Profil({ params }: { params: Promise<{ id: string 
   });
   if (!u || u.disabled) notFound();
   const own = u.id === v.id;
-  const [{ public: s, private: p }, words] = await Promise.all([
+  const [{ public: s, private: p }, words, puzzles] = await Promise.all([
     computeUserStats(db, u.id, { includePrivate: own }),
     // The person's words in the collection, newest first – the "posts" of the profile.
     db.word.findMany({ where: { ...publicWhere(await sfwOn()), submittedById: u.id }, select: publicEntrySelect, orderBy: { acceptedAt: "desc" } }),
+    puzzleStats(db, u.id),
   ]);
   const fav = u.favoriteWord?.isPublic ? u.favoriteWord : null;
   const counts: [number, string][] = [
@@ -176,6 +178,14 @@ export default async function Profil({ params }: { params: Promise<{ id: string 
           </span>
           <span className="block text-base text-ink-3">{s.gameEntries} Beiträge</span>
         </Stat>
+        {puzzles.played > 0 && (
+          <Stat k="Tägliche Rätsel">
+            {puzzles.won} gelöst
+            <span className="block text-base text-ink-3">
+              {puzzles.played} gespielt{puzzles.streak > 1 ? ` · ${puzzles.streak} Tage in Folge` : ""}
+            </span>
+          </Stat>
+        )}
         {s.yearWins.length > 0 && (
           <Stat k="Wort des Jahres">
             {s.yearWins.map((w) => (
