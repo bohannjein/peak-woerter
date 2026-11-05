@@ -32,6 +32,8 @@ services:
       BETTER_AUTH_URL: ${PUBLIC_URL:?PUBLIC_URL fehlt (.env bzw. Portainer-Variablen)}
       SETUP_TOKEN: ${SETUP_TOKEN:-}
       AI_API_KEY: ${AI_API_KEY:-}
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
     volumes:
       - appdata:/data
     # Lets the app reach local AI servers on the Docker host (Ollama, LM Studio).

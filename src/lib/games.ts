@@ -2,15 +2,51 @@
 // Day D: everyone gets the same random word and writes (or records) a sentence.
 // Day D+1: everyone votes for the best sentence of day D (not their own).
 // From D+2: the entries with the most votes have won; ties all win.
+// Daily puzzles (lib/puzzles) share the rounds: the round stores the generated
+// puzzle, each player's progress lives in GamePlay (lib/puzzles/play.ts).
 // New games: add a key to GAMES and a page; rounds, entries and votes are shared.
 import type { Db } from "./db";
+import type { Prisma } from "@/generated/prisma/client";
 import { AppError } from "./errors";
 import { berlinDay } from "./time";
+import { publicWhere } from "./queries";
+import { isPuzzle, puzzleKind } from "./puzzles/registry";
+import type { PoolWord } from "./puzzles/types";
 
 export const GAMES = {
+  wortjagd: { title: "Wortjagd", description: "Ein Wort aus dem Archiv in sechs Versuchen. Grün sitzt, Gelb kommt vor, nach drei Fehlversuchen gibt’s die Bedeutung." },
+  quartett: { title: "Quartett", description: "Sechzehn Wörter, vier Kategorien. Finde die vier Vierergruppen, vier Fehler sind erlaubt." },
+  bedeutung: { title: "Echt oder erfunden?", description: "Fünf Wörter, je vier Bedeutungen. Nur eine gehört wirklich dazu." },
+  sudoku: { title: "Buchstaben-Sudoku", description: "Ein Sudoku aus den Buchstaben eines Archivworts. Gelöst steht das Wort in der markierten Zeile." },
   satz: { title: "Satzbau", description: "Ein Wort aus dem Archiv, ein glaubwürdiger Satz damit. Morgen wird abgestimmt." },
 } as const;
 export type GameKey = keyof typeof GAMES;
+export const isGame = (k: string): k is GameKey => k in GAMES;
+
+/** Puzzles never use NSFW words: the round is the same for everyone, SFW mode or not. */
+export async function puzzlePool(db: Db): Promise<PoolWord[]> {
+  const rows = await db.word.findMany({
+    where: publicWhere(true),
+    select: {
+      id: true, term: true, slug: true, partOfSpeech: true,
+      definitions: { orderBy: { position: "asc" }, take: 1, select: { text: true } },
+      categories: { select: { category: { select: { id: true, name: true, color: true } } } },
+    },
+    orderBy: { id: "asc" },
+  });
+  return rows.map((w) => ({ id: w.id, term: w.term, slug: w.slug, partOfSpeech: w.partOfSpeech, definition: w.definitions[0]?.text ?? null, categories: w.categories.map((c) => c.category) }));
+}
+
+async function newRound(db: Db, game: GameKey): Promise<{ wordId: string; puzzle?: Prisma.InputJsonValue } | null> {
+  if (isPuzzle(game)) {
+    const recent = await db.gameRound.findMany({ where: { game }, orderBy: { day: "desc" }, take: 60, select: { wordId: true } });
+    return puzzleKind(game).generate(await puzzlePool(db), Math.random, new Set(recent.map((r) => r.wordId))) as { wordId: string; puzzle: Prisma.InputJsonValue } | null;
+  }
+  const n = await db.word.count({ where: { isPublic: true } });
+  if (!n) return null;
+  const [w] = await db.word.findMany({ where: { isPublic: true }, select: { id: true }, skip: Math.floor(Math.random() * n), take: 1, orderBy: { id: "asc" } });
+  return { wordId: w.id };
+}
 
 export function previousDay(day: string) {
   const d = new Date(`${day}T12:00:00Z`);
@@ -18,14 +54,13 @@ export function previousDay(day: string) {
   return d.toISOString().slice(0, 10);
 }
 
-/** Today's round; created on first request with a random word from the collection. */
+/** Today's round; created on first request (random word, or a generated puzzle). */
 export async function todaysRound(db: Db, game: GameKey = "satz", day = berlinDay()) {
   const existing = await db.gameRound.findUnique({ where: { game_day: { game, day } } });
   if (existing) return existing;
-  const n = await db.word.count({ where: { isPublic: true } });
-  if (!n) return null;
-  const [w] = await db.word.findMany({ where: { isPublic: true }, select: { id: true }, skip: Math.floor(Math.random() * n), take: 1, orderBy: { id: "asc" } });
-  await db.gameRound.createMany({ data: [{ game, day, wordId: w.id }], skipDuplicates: true });
+  const r = await newRound(db, game);
+  if (!r) return null;
+  await db.gameRound.createMany({ data: [{ game, day, ...r }], skipDuplicates: true });
   return db.gameRound.findUnique({ where: { game_day: { game, day } } });
 }
 

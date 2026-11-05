@@ -30,6 +30,11 @@ export function cleanIpa(input: string): string {
   return input.normalize("NFC").trim().replace(/^[\[/]+|[\]/]+$/g, "").trim();
 }
 
+/** Lowercase a–z spelling for letter games: ä → ae, ß → ss. Other characters stay. */
+export function foldLetters(input: string): string {
+  return input.normalize("NFC").toLocaleLowerCase("de-DE").replace(/ä/g, "ae").replace(/ö/g, "oe").replace(/ü/g, "ue").replace(/ß/g, "ss");
+}
+
 export function letterCount(term: string): number {
   return [...term.normalize("NFC")].filter((c) => /\p{L}/u.test(c)).length;
 }
