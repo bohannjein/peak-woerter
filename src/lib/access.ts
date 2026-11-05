@@ -78,7 +78,7 @@ export async function requireMemberPage(): Promise<Viewer> {
 
 export async function requireAdminPage(): Promise<Viewer> {
   const v = await requireStaffPage();
-  if (!v.isAdmin) redirect("/k");
+  if (!v.isAdmin) redirect("/");
   return v;
 }
 

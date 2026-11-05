@@ -41,8 +41,8 @@ export default async function InternalWord({ params }: { params: Promise<{ id: s
 
   return (
     <div className="mx-auto max-w-5xl px-4 pt-6 md:px-6 md:pt-10">
-      <Link href="/k" className="inline-flex items-center gap-1.5 rounded-md text-sm font-semibold text-ink-2 hover:text-ink">
-        <ArrowLeft size={16} aria-hidden /> Übersicht
+      <Link href="/" className="inline-flex items-center gap-1.5 rounded-md text-sm font-semibold text-ink-2 hover:text-ink">
+        <ArrowLeft size={16} aria-hidden /> Start
       </Link>
 
       <div className="mt-6 grid gap-10 md:grid-cols-[22rem_1fr] md:gap-14">

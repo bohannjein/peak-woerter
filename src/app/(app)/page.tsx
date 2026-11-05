@@ -10,13 +10,16 @@ import { bandClass } from "@/lib/categories";
 import { formatDate } from "@/lib/time";
 import { WordCard } from "@/components/WordCard";
 import { EntryRow } from "@/components/EntryRow";
+import { getViewer } from "@/lib/access";
+import { CuratorLinks, CuratorTasks } from "./_home/CuratorHome";
 
 export const dynamic = "force-dynamic";
 
 export default async function Home() {
   const sfw = await sfwOn();
   const where = publicWhere(sfw);
-  const [daily, latest, total, cats] = await Promise.all([
+  const [viewer, daily, latest, total, cats] = await Promise.all([
+    getViewer(),
     getWordOfDay(db),
     db.word.findMany({ where, select: publicEntrySelect, orderBy: { acceptedAt: "desc" }, take: 8 }),
     db.word.count({ where }),
@@ -25,10 +28,16 @@ export default async function Home() {
   // In SFW mode an NSFW word of the day is simply not shown.
   const dailyFull = daily ? await db.word.findFirst({ where: { ...where, id: daily.id }, select: publicEntrySelect }) : null;
 
+  // One start page for everyone; curators get their tasks on top.
+  const seat = viewer?.seat ?? null;
+  const Title = seat ? "h2" : "h1";
+
   return (
     <div className="mx-auto max-w-6xl px-4 pt-6 md:px-6 md:pt-10">
+      {seat && <CuratorTasks seat={seat} name={viewer!.name} />}
+      {seat && <hr className="mt-12 mb-8 border-line" />}
       <header className="max-w-2xl">
-        <h1 className="page-title">Peake Wörter</h1>
+        <Title className={seat ? "section-title" : "page-title"}>Peake Wörter</Title>
         <p className="mt-1.5 text-ink-2">Unser kleines Archiv für bemerkenswerte Begriffe.</p>
         <form action="/woerter" className="mt-5 flex gap-2" role="search">
           <label htmlFor="q" className="sr-only">
@@ -121,6 +130,7 @@ export default async function Home() {
         </div>
       )}
 
+      {seat && <CuratorLinks />}
     </div>
   );
 }

@@ -59,7 +59,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     if (viewer.seat) {
       const open = await db.votingRound.count({ where: { closedAt: null, votes: { none: { seat: viewer.seat } } } });
       items = [
-        { href: "/k", label: "Start", icon: "Home", exact: true },
+        { href: "/", label: "Start", icon: "Home", exact: true },
         { href: "/k/abstimmen", label: "Abstimmen", icon: "Layers", badge: open },
         { href: "/k/neu", label: "Hinzufügen", icon: "Plus", primary: true },
         { href: "/woerter", label: "Sammlung", icon: "BookOpen" },

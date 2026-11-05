@@ -44,7 +44,7 @@ test("Ersteinrichtung mit Setup-Token", async ({ browser }) => {
 
   await p.getByRole("button", { name: "Speichern und weiter" }).click();
   await p.getByRole("button", { name: "Einrichtung abschließen" }).click();
-  await expect(p).toHaveURL(/\/k$/);
+  await expect(p).toHaveURL(/:\d+\/$/);
   await expect(p.getByRole("heading", { name: "Hallo Anna." })).toBeVisible();
 
   // Setup is locked now.
@@ -160,9 +160,9 @@ test("Mitglied ohne Stimmrecht: liest, stimmt nicht ab", async ({ browser }) => 
 
 test("Eintrag bearbeiten: Definition und IPA erscheinen im Eintrag", async () => {
   const p = await anna.newPage();
-  await p.goto("/k");
-  await p.getByRole("link", { name: /Mumpitz/ }).first().click();
-  await p.getByRole("link", { name: "Eintrag bearbeiten" }).click();
+  // Accepted word: from its entry straight to the editor.
+  await p.goto("/wort/mumpitz");
+  await p.getByRole("link", { name: "Bearbeiten", exact: true }).click();
   await p.getByLabel("Kurzdefinition 1").fill("Unsinn, Quatsch oder eine völlig absurde Behauptung.");
   await p.getByRole("button", { name: "Aussprache hinzufügen" }).click();
   await p.getByLabel("Lautschrift 1").fill("[ˈmʊmpɪt͡s]");
@@ -198,9 +198,8 @@ test("Nachschlagen: Startseite, Suche, Kategorie", async () => {
   await a.locator("#n-neu").fill("Humor");
   await a.getByRole("button", { name: "Kategorie anlegen" }).click();
   await expect(a.getByText("Humor").first()).toBeVisible();
-  await a.goto("/k");
-  await a.getByRole("link", { name: /Mumpitz/ }).first().click();
-  await a.getByRole("link", { name: "Eintrag bearbeiten" }).click();
+  await a.goto("/wort/mumpitz");
+  await a.getByRole("link", { name: "Bearbeiten", exact: true }).click();
   await a.getByRole("button", { name: "Humor" }).click();
   await a.getByRole("button", { name: "Speichern" }).click();
   await expect(a.getByRole("status")).toHaveText("Gespeichert.");

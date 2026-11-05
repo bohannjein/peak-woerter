@@ -189,8 +189,8 @@ export function SwipeDeck({ initial }: { initial: DeckItem[] }) {
                 <Link href="/k/neu" className="btn btn-primary">
                   <Plus size={18} aria-hidden /> Wort hinzufügen
                 </Link>
-                <Link href="/k" className="btn btn-quiet">
-                  Zur Übersicht
+                <Link href="/" className="btn btn-quiet">
+                  Zur Startseite
                 </Link>
               </div>
             </div>

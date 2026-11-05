@@ -1,14 +1,10 @@
 import Link from "next/link";
-import type { Metadata } from "next";
-import { redirect } from "next/navigation";
-import { ArrowRight, Inbox, Plus, Sparkles, Users } from "lucide-react";
+import { ArrowRight, Plus, Sparkles, Users } from "lucide-react";
 import { db } from "@/lib/db";
-import { requireStaffPage } from "@/lib/access";
-import { formatDate, berlinYear } from "@/lib/time";
-import { cardNo } from "@/lib/categories";
+import { berlinYear } from "@/lib/time";
 
-export const metadata: Metadata = { title: "Übersicht", robots: { index: false } };
-export const dynamic = "force-dynamic";
+// Curator part of the start page: what is waiting for your vote, on top; the
+// curator areas as chips at the bottom. Rendered only for viewers with a seat.
 
 function List({ title, empty, items, href }: { title: string; empty: string; items: { id: string; term: string; meta?: string }[]; href?: string }) {
   return (
@@ -39,12 +35,8 @@ function List({ title, empty, items, href }: { title: string; empty: string; ite
   );
 }
 
-export default async function Overview() {
-  const v = await requireStaffPage();
-  if (!v.seat) redirect("/admin");
-  const seat = v.seat;
-
-  const [mine, waiting, later, reviews, inbox, recent] = await Promise.all([
+export async function CuratorTasks({ seat, name }: { seat: number; name: string }) {
+  const [mine, waiting, later, reviews, laterCount] = await Promise.all([
     db.votingRound.findMany({
       where: { closedAt: null, votes: { none: { seat } } },
       select: { word: { select: { id: true, term: true } }, kind: true },
@@ -58,14 +50,12 @@ export default async function Overview() {
     }),
     db.word.findMany({ where: { status: "LATER" }, select: { id: true, term: true, _count: { select: { comments: true } } }, orderBy: { updatedAt: "desc" }, take: 5 }),
     db.votingRound.findMany({ where: { closedAt: null, kind: "REVIEW" }, select: { word: { select: { id: true, term: true } } } }),
-    db.submission.count({ where: { status: "NEW" } }),
-    db.word.findMany({ where: { isPublic: true }, select: { id: true, term: true, cardNumber: true, acceptedAt: true }, orderBy: { acceptedAt: "desc" }, take: 5 }),
+    db.word.count({ where: { status: "LATER" } }),
   ]);
-  const laterCount = await db.word.count({ where: { status: "LATER" } });
 
   return (
-    <div className="mx-auto max-w-6xl px-4 pt-6 md:px-6 md:pt-10">
-      <h1 className="page-title">Hallo {v.name.split(" ")[0]}.</h1>
+    <section aria-label="Deine Aufgaben">
+      <h1 className="page-title">Hallo {name.split(" ")[0]}.</h1>
 
       {mine.length > 0 ? (
         <Link href="/k/abstimmen" className="group mt-8 flex flex-col items-start gap-6 sm:flex-row sm:items-center sm:gap-10" aria-label={`Abstimmen: ${mine.length} ${mine.length === 1 ? "Karte" : "Karten"} im Stapel`}>
@@ -91,16 +81,14 @@ export default async function Overview() {
         </Link>
       ) : (
         <div className="mt-8 flex flex-col gap-4 rounded-[20px] border-2 border-dashed border-line p-6 sm:flex-row sm:items-center sm:justify-between">
-          <p>
-            <span className="section-title block">Alles abgestimmt.</span>
-                      </p>
+          <p className="section-title">Alles abgestimmt.</p>
           <Link href="/k/neu" className="btn btn-primary">
             <Plus size={18} aria-hidden /> Wort hinzufügen
           </Link>
         </div>
       )}
 
-      <div className="mt-10 grid gap-x-12 gap-y-8 md:grid-cols-2">
+      <div className="mt-10 grid gap-x-10 gap-y-8 md:grid-cols-3">
         <List title="Wartet auf weitere Stimmen" empty="Keine." items={waiting.map((w) => ({ id: w.word.id, term: w.word.term }))} />
         <List
           title={`Später-Liste${laterCount ? ` (${laterCount})` : ""}`}
@@ -109,14 +97,15 @@ export default async function Overview() {
           items={later.map((w) => ({ id: w.id, term: w.term, meta: w._count.comments ? `${w._count.comments} Kommentar${w._count.comments === 1 ? "" : "e"}` : undefined }))}
         />
         <List title="Laufende Anfechtungen" empty="Keine." items={reviews.map((r) => ({ id: r.word.id, term: r.word.term }))} />
-        <List
-          title="Zuletzt aufgenommen"
-          empty="Keine."
-          items={recent.map((w) => ({ id: w.id, term: w.term, meta: [cardNo(w.cardNumber), w.acceptedAt && formatDate(w.acceptedAt, { day: "numeric", month: "short" })].filter(Boolean).join(" · ") }))}
-        />
       </div>
+    </section>
+  );
+}
 
-      <nav aria-label="Weitere Bereiche" className="mt-12 flex flex-wrap gap-2 border-t border-line pt-6">
+export async function CuratorLinks() {
+  const laterCount = await db.word.count({ where: { status: "LATER" } });
+  return (
+      <nav aria-label="Weitere Bereiche" className="mt-14 flex flex-wrap gap-2 border-t border-line pt-6">
         {laterCount > 0 && (
           <Link href="/k/runde" className="chip">
             <Users size={16} aria-hidden /> Diskussionsrunde
@@ -141,6 +130,5 @@ export default async function Overview() {
           <Sparkles size={16} aria-hidden /> Peake Wrapped
         </Link>
       </nav>
-    </div>
   );
 }

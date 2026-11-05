@@ -3,7 +3,7 @@
   "short_name": "Peake",
   "description": "Unser kleines Archiv für bemerkenswerte Begriffe.",
   "lang": "de",
-  "start_url": "/k",
+  "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
